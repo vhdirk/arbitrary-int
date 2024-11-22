@@ -2,10 +2,11 @@
 
 extern crate core;
 
-use arbitrary_int::*;
 use std::collections::HashMap;
 #[cfg(feature = "step_trait")]
 use std::iter::Step;
+
+use crate::{uint::{UInt, aliases::*}, error::TryNewError};
 
 #[test]
 fn constants() {
@@ -48,7 +49,7 @@ fn create_simple() {
 #[test]
 fn create_try_new() {
     assert_eq!(u7::new(123).value(), 123);
-    assert_eq!(u7::try_new(190).expect_err("No error seen"), TryNewError {});
+    assert_eq!(u7::try_new(190).expect_err("No error seen"), TryNewError { kind: crate::NumberErrorKind::PosOverflow});
 }
 
 #[test]
@@ -511,78 +512,78 @@ fn extract() {
     // Use extract with a custom type (5 bits of u32)
     assert_eq!(
         UInt::<u32, 5>::new(0b11110),
-        UInt::<u32, 5>::extract(0b11110000, 3)
+        UInt::<u32, 5>::extract(0b11110000u32, 3)
     );
     assert_eq!(
         u5::new(0b11110),
-        UInt::<u32, 5>::extract(0b11110000, 3).into()
+        UInt::<u32, 5>::extract(0b11110000u32, 3).into()
     );
 }
 
 #[test]
 fn extract_typed() {
-    assert_eq!(u5::new(0b10000), u5::extract_u8(0b11110000, 0));
-    assert_eq!(u5::new(0b00011), u5::extract_u16(0b11110000_11110110, 6));
+    assert_eq!(u5::new(0b10000), u5::extract(0b11110000, 0));
+    assert_eq!(u5::new(0b00011), u5::extract(0b11110000_11110110, 6));
     assert_eq!(
         u5::new(0b01011),
-        u5::extract_u32(0b11110010_11110110_00000000_00000000, 22)
+        u5::extract(0b11110010_11110110_00000000_00000000_u32, 22)
     );
     assert_eq!(
         u5::new(0b01011),
-        u5::extract_u64(
-            0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000,
+        u5::extract(
+            0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_u64,
             54
         )
     );
-    assert_eq!(u5::new(0b01011), u5::extract_u128(0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000, 118));
+    assert_eq!(u5::new(0b01011), u5::extract(0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_u128, 118));
 }
 
 #[test]
 fn extract_full_width_typed() {
     assert_eq!(
         0b1010_0011,
-        UInt::<u8, 8>::extract_u8(0b1010_0011, 0).value()
+        UInt::<u8, 8>::extract(0b1010_0011, 0).value()
     );
     assert_eq!(
         0b1010_0011,
-        UInt::<u8, 8>::extract_u16(0b1111_1111_1010_0011, 0).value()
+        UInt::<u8, 8>::extract(0b1111_1111_1010_0011, 0).value()
     );
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_8() {
-    let _ = u5::extract_u8(0b11110000, 4);
+    let _ = u5::extract(0b11110000u8, 4);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_8_full_width() {
-    let _ = UInt::<u8, 8>::extract_u8(0b11110000, 1);
+    let _ = UInt::<u8, 8>::extract(0b11110000u8, 1);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_16() {
-    let _ = u5::extract_u16(0b11110000, 12);
+    let _ = u5::extract(0b11110000u8, 12);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_32() {
-    let _ = u5::extract_u32(0b11110000, 28);
+    let _ = u5::extract(0b11110000u8, 28);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_64() {
-    let _ = u5::extract_u64(0b11110000, 60);
+    let _ = u5::extract(0b11110000u8, 60);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_128() {
-    let _ = u5::extract_u128(0b11110000, 124);
+    let _ = u5::extract(0b11110000u8, 124);
 }
 
 #[test]
@@ -1016,6 +1017,17 @@ fn to_le_and_be_bytes() {
     );
 
     assert_eq!(u24::new(0x12_34_56).to_be_bytes(), [0x12, 0x34, 0x56]);
+
+
+    assert_eq!(u24::new(0x12_34_56).to_be_bytes(), [0x12, 0x34, 0x56]);
+
+ /*    let v = u24::new(0x12_34_56);
+    let b  = v.to_be_bytes::<1>();
+
+
+
+ */
+
     assert_eq!(
         UInt::<u64, 24>::new(0x12_34_56).to_be_bytes(),
         [0x12, 0x34, 0x56]

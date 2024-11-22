@@ -1,4 +1,7 @@
-# arbitrary-int
+# arbitrary-num
+
+> Forked from Daniel Lehmann's excellent [arbitrary-int](https://github.com/danlehmann/arbitrary-int)
+
 
 This crate implements arbitrary numbers for Rust. Once included, you can use types like `u5` or `u120`.
 
