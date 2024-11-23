@@ -672,4 +672,6 @@ mod funty_128 {
     bytes_operation_impl!(u128, 15, 113, 120);
     bytes_operation_impl!(u128, 16, 121, 128);
 }
+
+#[cfg(feature="128")]
 pub use funty_128::*;

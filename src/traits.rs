@@ -27,6 +27,8 @@ where
     const ZERO: Self;
     const ONE: Self;
 
+    const SIGNED: bool;
+
     fn new(value: Self::UnderlyingType) -> Self;
 
     fn try_new(value: Self::UnderlyingType) -> Result<Self, TryNewError>;
@@ -57,6 +59,9 @@ macro_rules! impl_native {
                 const ZERO: $type = 0;
                 const ONE: $type = 0;
 
+                #[allow(unused_comparisons)]
+                const SIGNED: bool = <$type>::MIN  < 0;
+
                 #[inline]
                 fn new(value: Self::UnderlyingType) -> Self { value }
 
@@ -74,7 +79,7 @@ macro_rules! impl_native {
 }
 
 impl_native!(u8, u16, u32, u64, u128);
-// impl_native!(i8, i16, i32, i64, i128);
+impl_native!(i8, i16, i32, i64, i128);
 
 pub trait Unsigned: Number {}
 
@@ -90,4 +95,4 @@ macro_rules! impl_native_signed {
 }
 
 impl_native_signed!(Unsigned, (u8, u16, u32, u64, u128));
-// impl_native_signed!(Signed, (i8, i16, i32, i64, i128));
+impl_native_signed!(Signed, (i8, i16, i32, i64, i128));
