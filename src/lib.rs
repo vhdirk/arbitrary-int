@@ -5,16 +5,18 @@
 extern crate alloc;
 
 mod error;
-mod int;
-mod uint;
+// mod int;
+// mod uint;
+mod aint;
 mod util;
 
 use core::fmt;
 use std::error::Error;
 
 pub use error::{NumberErrorKind, ParseNumberError, TryNewError};
-pub use int::{aliases::*, Int};
-pub use uint::{aliases::*, UInt};
+// pub use int::{aliases::*, Int};
+// pub use uint::{aliases::*, UInt};
+pub use aint::{aliases::*, AInt};
 
 pub trait NumberType:
     Sized + fmt::Debug + Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Default
@@ -55,7 +57,7 @@ where
     unsafe fn new_unchecked(value: Self::UnderlyingType) -> Self;
 }
 
-macro_rules! impl_native_unsigned {
+macro_rules! impl_native {
     ($( $type:ty),+) => {
         $(
             impl Number for $type {
@@ -87,38 +89,5 @@ macro_rules! impl_native_unsigned {
     };
 }
 
-impl_native_unsigned!(u8, u16, u32, u64, u128);
-
-macro_rules! impl_native_signed {
-    ($( $type:ty),+) => {
-        $(
-            impl Number for $type {
-                type UnderlyingType = $type;
-                type TryNewError = TryNewError;
-
-                const BITS: usize = <$type>::BITS as usize;
-                const BYTES: usize = <$type>::BITS as usize / 8usize;
-
-                const MIN: Self = <$type>::MIN;
-                const MAX: Self = <$type>::MAX;
-
-                const ZERO: $type = 0;
-                const ONE: $type = 0;
-
-                #[inline]
-                fn new(value: Self::UnderlyingType) -> Self { value }
-
-                #[inline]
-                fn try_new(value: Self::UnderlyingType) -> Result<Self, Self::TryNewError> { Ok(value) }
-
-                #[inline]
-                unsafe fn new_unchecked(value: Self::UnderlyingType) -> Self { value }
-
-                #[inline]
-                fn value(self) -> Self::UnderlyingType { self }
-            }
-        )+
-    };
-}
-
-impl_native_signed!(i8, i16, i32, i64, i128);
+impl_native!(u8, u16, u32, u64, u128);
+impl_native!(i8, i16, i32, i64, i128);

@@ -1,0 +1,10 @@
+{
+  "rust-analyzer.cargo.features": [
+    "num-traits",
+    "borsh",
+    "serde",
+    "defmt",
+    "schemars",
+    "funty",
+  ]
+}

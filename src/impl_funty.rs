@@ -13,12 +13,13 @@ use core::{
 };
 use seq_macro::seq;
 
-use crate::{Number, UInt};
+use crate::{Number};
+use super::{AInt};
 
-macro_rules! uint_impl_funty {
+macro_rules! aint_impl_funty {
     ($($type:ident),+) => {
         $(
-            impl<const BITS: usize> funty::Fundamental for UInt<$type, BITS>
+            impl<const BITS: usize> funty::Fundamental for AInt<$type, BITS>
             where
                 Self: Number<UnderlyingType = $type>
                     + PartialEq
@@ -115,7 +116,7 @@ macro_rules! uint_impl_funty {
             }
 
 
-            impl<const BITS: usize> funty::Integral for UInt<$type, BITS>
+            impl<const BITS: usize> funty::Integral for AInt<$type, BITS>
             where
                 Self: funty::Numeric
                     + Number<UnderlyingType = $type>
@@ -546,7 +547,7 @@ macro_rules! uint_impl_funty {
     };
 }
 
-uint_impl_funty!(u8, u16, u32, u64, u128);
+aint_impl_funty!(u8, u16, u32, u64, u128);
 
 // Yes I know, this is pretty horrible. Two things at play here:
 //  1. We can't use const generics to figure out how many bytes we need.
@@ -557,7 +558,7 @@ uint_impl_funty!(u8, u16, u32, u64, u128);
 macro_rules! bytes_operation_impl {
     ($type:ident, $bytes: expr, $bits:expr, $min_bits:expr, $max_bits:expr ) => {
 
-        impl funty::Numeric for UInt<$type, $bits>
+        impl funty::Numeric for AInt<$type, $bits>
         where
             Self: funty::Fundamental
                 + Number<UnderlyingType = $type>

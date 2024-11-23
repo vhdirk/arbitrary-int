@@ -41,14 +41,14 @@ impl<T> UnsignedNumberType for T where
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Debug)]
-pub struct UInt<T, const BITS: usize>
+pub struct AInt<T, const BITS: usize>
 where
     T: UnsignedNumberType,
 {
     value: T,
 }
 
-impl<T, const BITS: usize> UInt<T, BITS>
+impl<T, const BITS: usize> AInt<T, BITS>
 where
     T: UnsignedNumberType,
 {
@@ -67,11 +67,11 @@ where
     }
 }
 
-macro_rules! uint_impl_number {
+macro_rules! aint_impl_number {
     ($( $type:ty),+) => {
         $(
 
-            impl<const BITS: usize> Number for UInt<$type, BITS>
+            impl<const BITS: usize> Number for AInt<$type, BITS>
             {
                 type UnderlyingType = $type;
                 type TryNewError = TryNewError;
@@ -121,7 +121,7 @@ macro_rules! uint_impl_number {
                 // #[inline]
                 // fn extract_from<F>(value: F, start_bit: usize) -> Result<Self, TryNewError>
                 // where
-                //     F: ReNum + Shr<usize, Output = <UInt<$type, BITS> as ReNum>::Container>,
+                //     F: ReNum + Shr<usize, Output = <AInt<$type, BITS> as ReNum>::Container>,
                 // {
                 //     // TODO: better error
                 //     assert!(start_bit + BITS <= F::BITS);
@@ -133,12 +133,12 @@ macro_rules! uint_impl_number {
         )+
     };
 }
-uint_impl_number!(u8, u16, u32, u64, u128);
+aint_impl_number!(u8, u16, u32, u64, u128);
 
-macro_rules! uint_impl {
+macro_rules! aint_impl {
     ($($type:ident),+) => {
         $(
-            impl<const BITS: usize> UInt<$type, BITS> {
+            impl<const BITS: usize> AInt<$type, BITS> {
 
                 pub const BITS: usize = BITS;
                 pub const BYTES: usize = (BITS + 7usize) / 8usize;
@@ -236,18 +236,18 @@ macro_rules! uint_impl {
                 /// Returns a UInt with a wider bit depth but with the same base data type
                 pub const fn widen<const WIDE_BITS: usize>(
                     self,
-                ) -> UInt<$type, WIDE_BITS> {
+                ) -> AInt<$type, WIDE_BITS> {
                     let _ = CompileTimeAssert::<BITS, WIDE_BITS>::LESSER_OR_EQUAL;
 
                     // Query MAX of the result to ensure we get a compiler error if the current definition is bogus (e.g. <u8, 9>)
-                    let _ = UInt::<$type, WIDE_BITS>::MAX;
-                    UInt::<$type, WIDE_BITS> { value: self.value }
+                    let _ = AInt::<$type, WIDE_BITS>::MAX;
+                    AInt::<$type, WIDE_BITS> { value: self.value }
                 }
 
                 #[inline]
                 pub const fn checked_add(self, rhs: Self) -> Option<Self> {
                     if core::mem::size_of::<$type>() << 3 == BITS {
-                        // We are something like a UInt::<u8; 8>. We can fallback to the base implementation
+                        // We are something like a AInt::<u8; 8>. We can fallback to the base implementation
                         match self.value.checked_add(rhs.value) {
                             Some(value) => Some(Self { value }),
                             None => None,
@@ -428,7 +428,7 @@ macro_rules! uint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn from_be_bytes(from: [u8; UInt::<$type, BITS>::BYTES] ) -> Self {
+                pub const fn from_be_bytes(from: [u8; AInt::<$type, BITS>::BYTES] ) -> Self {
                     let mut value: $type = 0;
 
                     let mut bx = 0;
@@ -468,7 +468,7 @@ macro_rules! uint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn from_le_bytes(from: [u8; UInt::<$type, BITS>::BYTES] ) -> Self {
+                pub const fn from_le_bytes(from: [u8; AInt::<$type, BITS>::BYTES] ) -> Self {
                     let mut value: $type = 0;
 
                     let mut bx = 0;
@@ -496,7 +496,7 @@ macro_rules! uint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn from_ne_bytes(from: [u8; UInt::<$type, BITS>::BYTES] ) -> Self {
+                pub const fn from_ne_bytes(from: [u8; AInt::<$type, BITS>::BYTES] ) -> Self {
                     #[cfg(target_endian = "little")]
                     {
                         Self::from_le_bytes(from)
@@ -537,7 +537,7 @@ macro_rules! uint_impl {
                 #[inline]
                 pub const fn overflowing_add(self, rhs: Self) -> (Self, bool) {
                     let (value, overflow) = if core::mem::size_of::<$type>() << 3 == BITS {
-                        // We are something like a UInt::<u8; 8>. We can fallback to the base implementation
+                        // We are something like a AInt::<u8; 8>. We can fallback to the base implementation
                         self.value.overflowing_add(rhs.value)
                     } else {
                         // We're dealing with fewer bits than the underlying type (e.g. u7).
@@ -722,7 +722,7 @@ macro_rules! uint_impl {
                 #[inline]
                 pub const fn saturating_add(self, rhs: Self) -> Self {
                     let saturated = if core::mem::size_of::<$type>() << 3 == BITS {
-                        // We are something like a UInt::<u8; 8>. We can fallback to the base implementation
+                        // We are something like a AInt::<u8; 8>. We can fallback to the base implementation
                         self.value.saturating_add(rhs.value)
                     } else {
                         // We're dealing with fewer bits than the underlying type (e.g. u7).
@@ -833,7 +833,7 @@ macro_rules! uint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn to_be_bytes(self) -> [u8; UInt::<$type, BITS>::BYTES] {
+                pub const fn to_be_bytes(self) -> [u8; AInt::<$type, BITS>::BYTES] {
                     let mut ret = [0; Self::BYTES];
 
                     let mut bx = 0;
@@ -882,7 +882,7 @@ macro_rules! uint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn to_le_bytes(self) -> [u8; UInt::<$type, BITS>::BYTES] {
+                pub const fn to_le_bytes(self) -> [u8; AInt::<$type, BITS>::BYTES] {
                     let mut ret = [0; Self::BYTES];
 
                     let mut bx = 0;
@@ -908,7 +908,7 @@ macro_rules! uint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn to_ne_bytes(self) -> [u8; UInt::<$type, BITS>::BYTES] {
+                pub const fn to_ne_bytes(self) -> [u8; AInt::<$type, BITS>::BYTES] {
                     #[cfg(target_endian = "little")]
                     {
                         self.to_le_bytes()
@@ -1035,12 +1035,12 @@ macro_rules! uint_impl {
 
 
 
-            // impl<T, const BITS: usize> Sub for UInt<T, BITS>
+            // impl<T, const BITS: usize> Sub for AInt<T, BITS>
             // where
             //     Self: ConstUpperBounded,
             //     T: PrimInt + ConstUpperBounded + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn sub(self, rhs: Self) -> Self::Output {
             //         // No need for extra overflow checking as the regular minus operator already handles it for us
@@ -1050,7 +1050,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> SubAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> SubAssign for AInt<T, BITS>
             // where
             //     Self: ConstUpperBounded,
             //     T: PrimInt + SubAssign + BitAndAssign + Unsigned,
@@ -1062,12 +1062,12 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> Mul for UInt<T, BITS>
+            // impl<T, const BITS: usize> Mul for AInt<T, BITS>
             // where
             //     Self: ConstZero + ConstUpperBounded,
             //     T: PrimInt + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn mul(self, rhs: Self) -> Self::Output {
             //         // In debug builds, this will perform two bounds checks: Initial multiplication, followed by
@@ -1084,7 +1084,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> MulAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> MulAssign for AInt<T, BITS>
             // where
             //     Self: ConstUpperBounded + ConstZero,
             //     T: PrimInt + MulAssign + BitAndAssign + Unsigned,
@@ -1099,11 +1099,11 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> Div for UInt<T, BITS>
+            // impl<T, const BITS: usize> Div for AInt<T, BITS>
             // where
             //     T: PrimInt + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn div(self, rhs: Self) -> Self::Output {
             //         // Integer division can only make the value smaller. And as the result is same type as
@@ -1114,7 +1114,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> DivAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> DivAssign for AInt<T, BITS>
             // where
             //     T: PrimInt + DivAssign + Unsigned,
             // {
@@ -1123,11 +1123,11 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> Rem for UInt<T, BITS>
+            // impl<T, const BITS: usize> Rem for AInt<T, BITS>
             // where
             //     T: PrimInt + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn rem(self, rhs: Self) -> Self::Output {
             //         // Integer division can only make the value smaller. And as the result is same type as
@@ -1138,7 +1138,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> RemAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> RemAssign for AInt<T, BITS>
             // where
             //     T: PrimInt + RemAssign + Unsigned,
             // {
@@ -1147,7 +1147,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> Sum for UInt<T, BITS>
+            // impl<T, const BITS: usize> Sum for AInt<T, BITS>
             // where
             //     Self: ConstZero + Add,
             //     T: PrimInt + Unsigned,
@@ -1160,7 +1160,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<'a, T, const BITS: usize> Sum<&'a UInt<T, BITS>> for UInt<T, BITS>
+            // impl<'a, T, const BITS: usize> Sum<&'a AInt<T, BITS>> for AInt<T, BITS>
             // where
             //     Self: ConstZero + Add,
             //     T: PrimInt + Unsigned,
@@ -1173,7 +1173,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> Product for UInt<T, BITS>
+            // impl<T, const BITS: usize> Product for AInt<T, BITS>
             // where
             //     Self: ConstOne + Mul,
             //     T: PrimInt + Unsigned,
@@ -1186,7 +1186,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<'a, T, const BITS: usize> Product<&'a UInt<T, BITS>> for UInt<T, BITS>
+            // impl<'a, T, const BITS: usize> Product<&'a AInt<T, BITS>> for AInt<T, BITS>
             // where
             //     Self: ConstOne + Mul,
             //     T: PrimInt + Unsigned,
@@ -1199,11 +1199,11 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> BitAnd for UInt<T, BITS>
+            // impl<T, const BITS: usize> BitAnd for AInt<T, BITS>
             // where
             //     T: PrimInt + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn bitand(self, rhs: Self) -> Self::Output {
             //         Self {
@@ -1212,7 +1212,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> BitAndAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> BitAndAssign for AInt<T, BITS>
             // where
             //     T: PrimInt + BitAndAssign + Unsigned,
             // {
@@ -1221,11 +1221,11 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> BitOr for UInt<T, BITS>
+            // impl<T, const BITS: usize> BitOr for AInt<T, BITS>
             // where
             //     T: PrimInt + Unsigned + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn bitor(self, rhs: Self) -> Self::Output {
             //         Self {
@@ -1234,7 +1234,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> BitOrAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> BitOrAssign for AInt<T, BITS>
             // where
             //     T: PrimInt + BitOrAssign + Unsigned,
             // {
@@ -1243,11 +1243,11 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> BitXor for UInt<T, BITS>
+            // impl<T, const BITS: usize> BitXor for AInt<T, BITS>
             // where
             //     T: PrimInt + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn bitxor(self, rhs: Self) -> Self::Output {
             //         Self {
@@ -1256,7 +1256,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> BitXorAssign for UInt<T, BITS>
+            // impl<T, const BITS: usize> BitXorAssign for AInt<T, BITS>
             // where
             //     T: PrimInt + BitXorAssign + Unsigned,
             // {
@@ -1265,12 +1265,12 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, const BITS: usize> Not for UInt<T, BITS>
+            // impl<T, const BITS: usize> Not for AInt<T, BITS>
             // where
             //     Self: ConstUpperBounded,
             //     T: PrimInt + BitXor + Unsigned,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn not(self) -> Self::Output {
             //         Self {
@@ -1279,13 +1279,13 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, TSHIFTBITS, const BITS: usize> Shl<TSHIFTBITS> for UInt<T, BITS>
+            // impl<T, TSHIFTBITS, const BITS: usize> Shl<TSHIFTBITS> for AInt<T, BITS>
             // where
             //     Self: ConstUpperBounded,
             //     T: PrimInt + Shl<TSHIFTBITS, Output = T> + BitAnd + Unsigned,
             //     TSHIFTBITS: TryInto<usize> + Copy,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn shl(self, rhs: TSHIFTBITS) -> Self::Output {
             //         // With debug assertions, the << and >> operators throw an exception if the shift amount
@@ -1301,7 +1301,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, TSHIFTBITS, const BITS: usize> ShlAssign<TSHIFTBITS> for UInt<T, BITS>
+            // impl<T, TSHIFTBITS, const BITS: usize> ShlAssign<TSHIFTBITS> for AInt<T, BITS>
             // where
             //     Self: ConstUpperBounded,
             //     T: PrimInt + ShlAssign<TSHIFTBITS> + BitAndAssign + Unsigned,
@@ -1319,12 +1319,12 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, TSHIFTBITS, const BITS: usize> Shr<TSHIFTBITS> for UInt<T, BITS>
+            // impl<T, TSHIFTBITS, const BITS: usize> Shr<TSHIFTBITS> for AInt<T, BITS>
             // where
             //     T: PrimInt + Shr<TSHIFTBITS, Output = T> + Unsigned,
             //     TSHIFTBITS: TryInto<usize> + Copy,
             // {
-            //     type Output = UInt<T, BITS>;
+            //     type Output = AInt<T, BITS>;
 
             //     fn shr(self, rhs: TSHIFTBITS) -> Self::Output {
             //         // With debug assertions, the << and >> operators throw an exception if the shift amount
@@ -1339,7 +1339,7 @@ macro_rules! uint_impl {
             //     }
             // }
 
-            // impl<T, TSHIFTBITS, const BITS: usize> ShrAssign<TSHIFTBITS> for UInt<T, BITS>
+            // impl<T, TSHIFTBITS, const BITS: usize> ShrAssign<TSHIFTBITS> for AInt<T, BITS>
             // where
             //     T: PrimInt + ShrAssign<TSHIFTBITS> + Unsigned,
             //     TSHIFTBITS: TryInto<usize> + Copy,
@@ -1378,7 +1378,7 @@ macro_rules! uint_impl {
 
 
 
-            //     impl<T, const BITS: usize> Saturating for UInt<T, BITS>
+            //     impl<T, const BITS: usize> Saturating for AInt<T, BITS>
             //     where
             //         T: PrimInt + WrappingAdd + SaturatingAdd + ConstUpperBounded + SaturatingSub + Unsigned,
             //         Self: ConstZero + ConstUpperBounded,
@@ -1417,18 +1417,18 @@ macro_rules! uint_impl {
     }
 }
 
-uint_impl!(u8, u16, u32, u64, u128);
+aint_impl!(u8, u16, u32, u64, u128);
 
 
 // Conversions
-macro_rules! from_uint_impl {
+macro_rules! from_aint_impl {
     ($from:ty, [$($into:ty),+]) => {
         $(
-            impl<const BITS: usize, const BITS_FROM: usize> From<UInt<$from, BITS_FROM>>
-                for UInt<$into, BITS>
+            impl<const BITS: usize, const BITS_FROM: usize> From<AInt<$from, BITS_FROM>>
+                for AInt<$into, BITS>
             {
                 #[inline]
-                fn from(item: UInt<$from, BITS_FROM>) -> Self {
+                fn from(item: AInt<$from, BITS_FROM>) -> Self {
                     let _ = CompileTimeAssert::<BITS_FROM, BITS>::LESSER_OR_EQUAL;
                     Self { value: item.value as $into }
                 }
@@ -1440,7 +1440,7 @@ macro_rules! from_uint_impl {
 macro_rules! from_native_impl {
     ($from:ty, [$($into:ty),+]) => {
         $(
-            impl<const BITS: usize> From<$from> for UInt<$into, BITS> {
+            impl<const BITS: usize> From<$from> for AInt<$into, BITS> {
                 #[inline]
                 fn from(from: $from) -> Self {
                     let _ = CompileTimeAssert::<{<$from>::BITS as usize}, BITS>::LESSER_OR_EQUAL;
@@ -1448,9 +1448,9 @@ macro_rules! from_native_impl {
                 }
             }
 
-            impl<const BITS: usize> From<UInt<$from, BITS>> for $into {
+            impl<const BITS: usize> From<AInt<$from, BITS>> for $into {
                 #[inline]
-                fn from(from: UInt<$from, BITS>) -> Self {
+                fn from(from: AInt<$from, BITS>) -> Self {
                     let _ = CompileTimeAssert::<{<$from>::BITS as usize}, BITS>::LESSER_OR_EQUAL;
                     from.value as $into
                 }
@@ -1459,11 +1459,11 @@ macro_rules! from_native_impl {
     };
 }
 
-from_uint_impl!(u8, [u16, u32, u64, u128]);
-from_uint_impl!(u16, [u8, u32, u64, u128]);
-from_uint_impl!(u32, [u8, u16, u64, u128]);
-from_uint_impl!(u64, [u8, u16, u32, u128]);
-from_uint_impl!(u128, [u8, u32, u64, u16]);
+from_aint_impl!(u8, [u16, u32, u64, u128]);
+from_aint_impl!(u16, [u8, u32, u64, u128]);
+from_aint_impl!(u32, [u8, u16, u64, u128]);
+from_aint_impl!(u64, [u8, u16, u32, u128]);
+from_aint_impl!(u128, [u8, u32, u64, u16]);
 
 from_native_impl!(u8, [u8, u16, u32, u64, u128]);
 from_native_impl!(u16, [u8, u16, u32, u64, u128]);
@@ -1472,10 +1472,10 @@ from_native_impl!(u64, [u8, u16, u32, u64, u128]);
 from_native_impl!(u128, [u8, u16, u32, u64, u128]);
 
 // Define type aliases like u1, u63 and u80 using the smallest possible underlying data type.
-// These are for convenience only - UInt<u32, 15> is still legal
+// These are for convenience only - AInt<u32, 15> is still legal
 macro_rules! type_alias {
     ($storage:ty, $(($name:ident, $bits:expr)),+) => {
-        $( pub type $name = crate::UInt<$storage, $bits>; )+
+        $( pub type $name = crate::AInt<$storage, $bits>; )+
     }
 }
 
@@ -1489,6 +1489,12 @@ pub mod aliases {
     type_alias!(u32, (u17, 17), (u18, 18), (u19, 19), (u20, 20), (u21, 21), (u22, 22), (u23, 23), (u24, 24), (u25, 25), (u26, 26), (u27, 27), (u28, 28), (u29, 29), (u30, 30), (u31, 31));
     type_alias!(u64, (u33, 33), (u34, 34), (u35, 35), (u36, 36), (u37, 37), (u38, 38), (u39, 39), (u40, 40), (u41, 41), (u42, 42), (u43, 43), (u44, 44), (u45, 45), (u46, 46), (u47, 47), (u48, 48), (u49, 49), (u50, 50), (u51, 51), (u52, 52), (u53, 53), (u54, 54), (u55, 55), (u56, 56), (u57, 57), (u58, 58), (u59, 59), (u60, 60), (u61, 61), (u62, 62), (u63, 63));
     type_alias!(u128, (u65, 65), (u66, 66), (u67, 67), (u68, 68), (u69, 69), (u70, 70), (u71, 71), (u72, 72), (u73, 73), (u74, 74), (u75, 75), (u76, 76), (u77, 77), (u78, 78), (u79, 79), (u80, 80), (u81, 81), (u82, 82), (u83, 83), (u84, 84), (u85, 85), (u86, 86), (u87, 87), (u88, 88), (u89, 89), (u90, 90), (u91, 91), (u92, 92), (u93, 93), (u94, 94), (u95, 95), (u96, 96), (u97, 97), (u98, 98), (u99, 99), (u100, 100), (u101, 101), (u102, 102), (u103, 103), (u104, 104), (u105, 105), (u106, 106), (u107, 107), (u108, 108), (u109, 109), (u110, 110), (u111, 111), (u112, 112), (u113, 113), (u114, 114), (u115, 115), (u116, 116), (u117, 117), (u118, 118), (u119, 119), (u120, 120), (u121, 121), (u122, 122), (u123, 123), (u124, 124), (u125, 125), (u126, 126), (u127, 127));
+
+    type_alias!(i8, (i1, 1), (i2, 2), (i3, 3), (i4, 4), (i5, 5), (i6, 6), (i7, 7));
+    type_alias!(i16, (i9, 9), (i10, 10), (i11, 11), (i12, 12), (i13, 13), (i14, 14), (i15, 15));
+    type_alias!(i32, (i17, 17), (i18, 18), (i19, 19), (i20, 20), (i21, 21), (i22, 22), (i23, 23), (i24, 24), (i25, 25), (i26, 26), (i27, 27), (i28, 28), (i29, 29), (i30, 30), (i31, 31));
+    type_alias!(i64, (i33, 33), (i34, 34), (i35, 35), (i36, 36), (i37, 37), (i38, 38), (i39, 39), (i40, 40), (i41, 41), (i42, 42), (i43, 43), (i44, 44), (i45, 45), (i46, 46), (i47, 47), (i48, 48), (i49, 49), (i50, 50), (i51, 51), (i52, 52), (i53, 53), (i54, 54), (i55, 55), (i56, 56), (i57, 57), (i58, 58), (i59, 59), (i60, 60), (i61, 61), (i62, 62), (i63, 63));
+    type_alias!(i128, (i65, 65), (i66, 66), (i67, 67), (i68, 68), (i69, 69), (i70, 70), (i71, 71), (i72, 72), (i73, 73), (i74, 74), (i75, 75), (i76, 76), (i77, 77), (i78, 78), (i79, 79), (i80, 80), (i81, 81), (i82, 82), (i83, 83), (i84, 84), (i85, 85), (i86, 86), (i87, 87), (i88, 88), (i89, 89), (i90, 90), (i91, 91), (i92, 92), (i93, 93), (i94, 94), (i95, 95), (i96, 96), (i97, 97), (i98, 98), (i99, 99), (i100, 100), (i101, 101), (i102, 102), (i103, 103), (i104, 104), (i105, 105), (i106, 106), (i107, 107), (i108, 108), (i109, 109), (i110, 110), (i111, 111), (i112, 112), (i113, 113), (i114, 114), (i115, 115), (i116, 116), (i117, 117), (i118, 118), (i119, 119), (i120, 120), (i121, 121), (i122, 122), (i123, 123), (i124, 124), (i125, 125), (i126, 126), (i127, 127));
 }
 
 // We need to wrap this in a macro, currently: https://github.com/rust-lang/rust/issues/67792#issuecomment-1130369066
