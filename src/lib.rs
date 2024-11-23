@@ -1,3 +1,6 @@
+#![cfg_attr(feature = "step_trait", feature(step_trait))]
+#![cfg_attr(feature = "generic_const_exprs", feature(generic_const_exprs), allow(incomplete_features))]
+
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
@@ -10,45 +13,16 @@ use core::fmt;
 use std::error::Error;
 
 pub use error::{NumberErrorKind, ParseNumberError, TryNewError};
+pub use int::{aliases::*, Int};
 pub use uint::{aliases::*, UInt};
 
-#[cfg(feature = "serde")]
-mod impl_serde;
-
-#[cfg(feature = "schemars")]
-mod impl_schemars;
-
-#[cfg(feature = "borsh")]
-mod impl_borsh;
-
-// #[cfg(feature = "funty")]
-// mod impl_funty_traits;
-// #[cfg(feature = "funty")]
-// #[allow(unused_imports)]
-// pub use impl_funty_traits::*;
-
 pub trait NumberType:
-    Sized
-    + fmt::Debug
-    + Copy
-    + Clone
-    + PartialOrd
-    + Ord
-    + Eq
-    + PartialEq
-    + Default
+    Sized + fmt::Debug + Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Default
 {
 }
 
 impl<T> NumberType for T where
-    T: Sized
-        + fmt::Debug
-        + Copy
-        + PartialOrd
-        + Ord
-        + Eq
-        + PartialEq
-        + Default
+    T: Sized + fmt::Debug + Copy + PartialOrd + Ord + Eq + PartialEq + Default
 {
 }
 
@@ -115,7 +89,6 @@ macro_rules! impl_native_unsigned {
 
 impl_native_unsigned!(u8, u16, u32, u64, u128);
 
-
 macro_rules! impl_native_signed {
     ($( $type:ty),+) => {
         $(
@@ -149,5 +122,3 @@ macro_rules! impl_native_signed {
 }
 
 impl_native_signed!(i8, i16, i32, i64, i128);
-
-

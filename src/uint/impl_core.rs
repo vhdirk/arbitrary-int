@@ -1,8 +1,6 @@
 use core::fmt::{Binary, Display, Formatter, LowerHex, Octal, UpperHex};
 use core::hash::{Hash, Hasher};
 
-#[cfg(feature = "step_trait")]
-use core::iter::Step;
 use core::iter::{Product, Sum};
 use core::str::FromStr;
 
@@ -484,32 +482,3 @@ where
     }
 }
 
-#[cfg(feature = "step_trait")]
-impl<T, const BITS: usize> Step for UInt<T, BITS>
-where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Step,
-{
-    #[inline]
-    fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        Step::steps_between(&start.value(), &end.value())
-    }
-
-    #[inline]
-    fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        if let Some(res) = Step::forward_checked(start.value(), count) {
-            Self::try_new(res).ok()
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        if let Some(res) = Step::backward_checked(start.value(), count) {
-            Self::try_new(res).ok()
-        } else {
-            None
-        }
-    }
-}

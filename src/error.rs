@@ -119,6 +119,23 @@ impl fmt::Display for ParseNumberError {
 
 impl Error for ParseNumberError {}
 
+impl Into<ParseIntError> for ParseNumberError {
+    fn into(self) -> ParseIntError {
+        // we can't construct a ParseIntError. But we can trigger one :)
+        use NumberErrorKind::*;
+        use std::num::NonZeroU8;
+        match self.kind {
+            Empty => "".parse::<u8>().unwrap_err(),
+            InvalidDigit => "q".parse::<u8>().unwrap_err(),
+            PosOverflow => "512".parse::<u8>().unwrap_err(),
+            NegOverflow => "-1".parse::<u8>().unwrap_err(),
+            Zero => "1".parse::<NonZeroU8>().unwrap_err(),
+            // ParseIntError is non-exhastive. Let's just default to empty
+            Unknown => "".parse::<u8>().unwrap_err(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct TryNewError {
     pub(crate) kind: NumberErrorKind,
