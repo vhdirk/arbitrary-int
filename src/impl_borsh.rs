@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::Number;
 
-use super::{AInt, UnsignedNumberType};
+use crate::{AInt, UnsignedNumberType};
 
 impl<T, const BITS: usize> borsh::BorshSerialize for AInt<T, BITS>
 where
@@ -74,7 +74,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::{AInt, aliases::*};
+    use crate::{AInt, aliases::*};
     use crate::Number;
     use borsh::schema::BorshSchemaContainer;
     use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};

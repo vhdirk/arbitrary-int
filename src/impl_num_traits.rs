@@ -552,7 +552,7 @@ aint_impl_num_traits!(u8, u16, u32, u64, u128);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aint::aliases::*;
+    use crate::aliases::*;
 
     #[test]
     fn calculation_with_number_trait() {

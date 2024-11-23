@@ -12,7 +12,7 @@ use std::num::ParseIntError;
 
 use crate::{Number, NumberErrorKind, ParseNumberError};
 
-use super::{AInt, UnsignedNumberType};
+use crate::{AInt, UnsignedNumberType};
 
 impl<T, const BITS: usize> Hash for AInt<T, BITS>
 where

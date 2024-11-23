@@ -30,7 +30,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::aint::aliases::*;
+    use crate::aliases::*;
 
     #[test]
     fn serde() {

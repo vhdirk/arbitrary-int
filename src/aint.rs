@@ -3,32 +3,6 @@ use std::ops::Shr;
 use crate::{Number, NumberErrorKind, NumberType, ParseNumberError, TryNewError};
 use crate::util::CompileTimeAssert;
 
-mod impl_core;
-
-#[cfg(feature = "num-traits")]
-mod impl_num_traits;
-
-#[cfg(feature = "serde")]
-mod impl_serde;
-
-#[cfg(feature = "borsh")]
-mod impl_borsh;
-
-#[cfg(feature = "step_trait")]
-mod impl_step_trait;
-
-#[cfg(feature = "schemars")]
-mod impl_schemars;
-
-#[cfg(feature = "funty")]
-mod impl_funty;
-
-#[cfg(feature = "defmt")]
-mod impl_defmt;
-
-
-#[cfg(test)]
-mod tests;
 
 pub trait UnsignedNumberType:
     NumberType + From<u8> + TryFrom<u16> + TryFrom<u32> + TryFrom<u64> + TryFrom<u128>
@@ -45,7 +19,7 @@ pub struct AInt<T, const BITS: usize>
 where
     T: UnsignedNumberType,
 {
-    value: T,
+    pub(crate) value: T,
 }
 
 impl<T, const BITS: usize> AInt<T, BITS>
@@ -135,7 +109,7 @@ macro_rules! aint_impl_number {
 }
 aint_impl_number!(u8, u16, u32, u64, u128);
 
-macro_rules! aint_impl {
+macro_rules! aint_impl_unsigned {
     ($($type:ident),+) => {
         $(
             impl<const BITS: usize> AInt<$type, BITS> {
@@ -1417,7 +1391,7 @@ macro_rules! aint_impl {
     }
 }
 
-aint_impl!(u8, u16, u32, u64, u128);
+aint_impl_unsigned!(u8, u16, u32, u64, u128);
 
 
 // Conversions
@@ -1471,53 +1445,17 @@ from_native_impl!(u32, [u8, u16, u32, u64, u128]);
 from_native_impl!(u64, [u8, u16, u32, u64, u128]);
 from_native_impl!(u128, [u8, u16, u32, u64, u128]);
 
-// Define type aliases like u1, u63 and u80 using the smallest possible underlying data type.
-// These are for convenience only - AInt<u32, 15> is still legal
-macro_rules! type_alias {
-    ($storage:ty, $(($name:ident, $bits:expr)),+) => {
-        $( pub type $name = crate::AInt<$storage, $bits>; )+
-    }
-}
 
-pub use aliases::*;
+// from_aint_impl!(i8, [i16, i32, i64, i128]);
+// from_aint_impl!(i16, [i8, i32, i64, i128]);
+// from_aint_impl!(i32, [i8, i16, i64, i128]);
+// from_aint_impl!(i64, [i8, i16, i32, i128]);
+// from_aint_impl!(i128, [i8, i32, i64, i16]);
 
-#[rustfmt::skip]
-#[allow(non_camel_case_types)]
-pub mod aliases {
-    type_alias!(u8, (u1, 1), (u2, 2), (u3, 3), (u4, 4), (u5, 5), (u6, 6), (u7, 7));
-    type_alias!(u16, (u9, 9), (u10, 10), (u11, 11), (u12, 12), (u13, 13), (u14, 14), (u15, 15));
-    type_alias!(u32, (u17, 17), (u18, 18), (u19, 19), (u20, 20), (u21, 21), (u22, 22), (u23, 23), (u24, 24), (u25, 25), (u26, 26), (u27, 27), (u28, 28), (u29, 29), (u30, 30), (u31, 31));
-    type_alias!(u64, (u33, 33), (u34, 34), (u35, 35), (u36, 36), (u37, 37), (u38, 38), (u39, 39), (u40, 40), (u41, 41), (u42, 42), (u43, 43), (u44, 44), (u45, 45), (u46, 46), (u47, 47), (u48, 48), (u49, 49), (u50, 50), (u51, 51), (u52, 52), (u53, 53), (u54, 54), (u55, 55), (u56, 56), (u57, 57), (u58, 58), (u59, 59), (u60, 60), (u61, 61), (u62, 62), (u63, 63));
-    type_alias!(u128, (u65, 65), (u66, 66), (u67, 67), (u68, 68), (u69, 69), (u70, 70), (u71, 71), (u72, 72), (u73, 73), (u74, 74), (u75, 75), (u76, 76), (u77, 77), (u78, 78), (u79, 79), (u80, 80), (u81, 81), (u82, 82), (u83, 83), (u84, 84), (u85, 85), (u86, 86), (u87, 87), (u88, 88), (u89, 89), (u90, 90), (u91, 91), (u92, 92), (u93, 93), (u94, 94), (u95, 95), (u96, 96), (u97, 97), (u98, 98), (u99, 99), (u100, 100), (u101, 101), (u102, 102), (u103, 103), (u104, 104), (u105, 105), (u106, 106), (u107, 107), (u108, 108), (u109, 109), (u110, 110), (u111, 111), (u112, 112), (u113, 113), (u114, 114), (u115, 115), (u116, 116), (u117, 117), (u118, 118), (u119, 119), (u120, 120), (u121, 121), (u122, 122), (u123, 123), (u124, 124), (u125, 125), (u126, 126), (u127, 127));
+// from_native_impl!(i8, [i8, i16, i32, i64, i128]);
+// from_native_impl!(i16, [i8, i16, i32, i64, i128]);
+// from_native_impl!(i32, [i8, i16, i32, i64, i128]);
+// from_native_impl!(i64, [i8, i16, i32, i64, i128]);
+// from_native_impl!(i128, [i8, i16, i32, i64, i128]);
 
-    type_alias!(i8, (i1, 1), (i2, 2), (i3, 3), (i4, 4), (i5, 5), (i6, 6), (i7, 7));
-    type_alias!(i16, (i9, 9), (i10, 10), (i11, 11), (i12, 12), (i13, 13), (i14, 14), (i15, 15));
-    type_alias!(i32, (i17, 17), (i18, 18), (i19, 19), (i20, 20), (i21, 21), (i22, 22), (i23, 23), (i24, 24), (i25, 25), (i26, 26), (i27, 27), (i28, 28), (i29, 29), (i30, 30), (i31, 31));
-    type_alias!(i64, (i33, 33), (i34, 34), (i35, 35), (i36, 36), (i37, 37), (i38, 38), (i39, 39), (i40, 40), (i41, 41), (i42, 42), (i43, 43), (i44, 44), (i45, 45), (i46, 46), (i47, 47), (i48, 48), (i49, 49), (i50, 50), (i51, 51), (i52, 52), (i53, 53), (i54, 54), (i55, 55), (i56, 56), (i57, 57), (i58, 58), (i59, 59), (i60, 60), (i61, 61), (i62, 62), (i63, 63));
-    type_alias!(i128, (i65, 65), (i66, 66), (i67, 67), (i68, 68), (i69, 69), (i70, 70), (i71, 71), (i72, 72), (i73, 73), (i74, 74), (i75, 75), (i76, 76), (i77, 77), (i78, 78), (i79, 79), (i80, 80), (i81, 81), (i82, 82), (i83, 83), (i84, 84), (i85, 85), (i86, 86), (i87, 87), (i88, 88), (i89, 89), (i90, 90), (i91, 91), (i92, 92), (i93, 93), (i94, 94), (i95, 95), (i96, 96), (i97, 97), (i98, 98), (i99, 99), (i100, 100), (i101, 101), (i102, 102), (i103, 103), (i104, 104), (i105, 105), (i106, 106), (i107, 107), (i108, 108), (i109, 109), (i110, 110), (i111, 111), (i112, 112), (i113, 113), (i114, 114), (i115, 115), (i116, 116), (i117, 117), (i118, 118), (i119, 119), (i120, 120), (i121, 121), (i122, 122), (i123, 123), (i124, 124), (i125, 125), (i126, 126), (i127, 127));
-}
 
-// We need to wrap this in a macro, currently: https://github.com/rust-lang/rust/issues/67792#issuecomment-1130369066
-
-macro_rules! boolu1 {
-    () => {
-        impl From<bool> for u1 {
-            #[inline]
-            fn from(value: bool) -> Self {
-                u1::new(value as u8)
-            }
-        }
-        impl From<u1> for bool {
-            #[inline]
-            fn from(value: u1) -> Self {
-                match value.value {
-                    0 => false,
-                    1 => true,
-                    _ => panic!("ReNum already validates that this is unreachable"), //TODO: unreachable!() is not const yet
-                }
-            }
-        }
-    };
-}
-
-boolu1!();

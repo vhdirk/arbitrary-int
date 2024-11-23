@@ -2,7 +2,7 @@ extern crate core;
 
 use std::collections::HashMap;
 
-use super::{AInt, aliases::*};
+use crate::{AInt, aliases::*};
 use crate::{Number, error::TryNewError};
 
 #[test]
