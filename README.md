@@ -1,6 +1,7 @@
-# arbitrary-num
+# arbitrary-int
 
-> Forked from Daniel Lehmann's excellent [arbitrary-int](https://github.com/danlehmann/arbitrary-int)
+> Forked from Daniel Lehmann's excellent [arbitrary-int](https://github.com/danlehmann/arbitrary-int),
+> using numerous addittions from Jack Bernard's [aint](https://github.com/Vociferix/aint)
 
 
 This crate implements arbitrary numbers for Rust. Once included, you can use types like `u5` or `u120`.
@@ -44,8 +45,8 @@ its actual data in the next larger data type (e.g. a `u14` internally has an `u1
 `uXX` are just type aliases; it is also possible to use the actual underlying generic struct:
 
 ```rust
-let a = UInt::<u8, 5>::new(0b10101));
-let b = UInt::<u32, 5>::new(0b10101));
+let a = AInt::<u8, 5>::new(0b10101));
+let b = AInt::<u32, 5>::new(0b10101));
 ```
 
 In this example, `a` will have 5 bits and be represented by a `u8`. This is identical to `u5`. `b` however is represented by a

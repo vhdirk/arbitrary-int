@@ -1,3 +1,4 @@
+use core::fmt;
 use std::fmt::Debug;
 use std::ops::Shr;
 use crate::{Number, NumberErrorKind, NumberType, ParseNumberError, TryNewError};
@@ -14,12 +15,22 @@ impl<T> UnsignedNumberType for T where
 {
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct AInt<T, const BITS: usize>
 where
-    T: UnsignedNumberType,
+    T: NumberType,
 {
     pub(crate) value: T,
+}
+
+impl<T, const BITS: usize> Debug for AInt<T, BITS>
+where
+    T: NumberType + Debug,
+{
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> core::fmt::Result {
+        self.value.fmt(f)
+    }
 }
 
 impl<T, const BITS: usize> AInt<T, BITS>
@@ -107,7 +118,8 @@ macro_rules! aint_impl_number {
         )+
     };
 }
-aint_impl_number!(u8, u16, u32, u64, u128);
+aint_impl_number!(u8, u16, u32, u64);
+
 
 macro_rules! aint_impl_unsigned {
     ($($type:ident),+) => {
@@ -207,7 +219,7 @@ macro_rules! aint_impl_unsigned {
                     Self::new((value >> start_bit).try_into().unwrap())
                 }
 
-                /// Returns a UInt with a wider bit depth but with the same base data type
+                /// Returns a AInt with a wider bit depth but with the same base data type
                 pub const fn widen<const WIDE_BITS: usize>(
                     self,
                 ) -> AInt<$type, WIDE_BITS> {
@@ -789,17 +801,12 @@ macro_rules! aint_impl_unsigned {
 
                     let mut ret = [0; BYTES];
 
+                    let tmp = self.value.to_be_bytes();
+                    let offset = <$type>::BYTES - Self::BYTES;
+
                     let mut bx = 0;
-
-                    while bx < Self::BYTES {
-                        ret[bx] =
-                            if Self::BITS - ((bx + 1) << 3) > 0 {
-                                (self.value >> (Self::BITS - (bx + 1) * 8)) as u8
-                            } else {
-                                // Only mask the relevant part for the last few bits
-                                (self.value << ((bx + 1) * 8 - Self::BITS)) as u8
-                            };
-
+                    while bx < <$type>::BYTES {
+                        ret[bx] = tmp[bx + offset];
                         bx += 1;
                     }
                     ret
@@ -846,9 +853,12 @@ macro_rules! aint_impl_unsigned {
 
                     let mut ret = [0; BYTES];
 
+                    let tmp = self.value.to_le_bytes();
+                    let offset = <$type>::BYTES - Self::BYTES;
+
                     let mut bx = 0;
-                    while bx < Self::BYTES {
-                        ret[bx] = (self.value >> (bx * 8)) as u8;
+                    while bx < <$type>::BYTES {
+                        ret[bx] = tmp[bx + offset];
                         bx += 1;
                     }
                     ret
@@ -1425,7 +1435,7 @@ macro_rules! from_native_impl {
             impl<const BITS: usize> From<AInt<$from, BITS>> for $into {
                 #[inline]
                 fn from(from: AInt<$from, BITS>) -> Self {
-                    let _ = CompileTimeAssert::<{<$from>::BITS as usize}, BITS>::LESSER_OR_EQUAL;
+                    let _ = CompileTimeAssert::<{<$from>::BITS as usize}, BITS>::GREATER_OR_EQUAL;
                     from.value as $into
                 }
             }
@@ -1433,18 +1443,37 @@ macro_rules! from_native_impl {
     };
 }
 
-from_aint_impl!(u8, [u16, u32, u64, u128]);
-from_aint_impl!(u16, [u8, u32, u64, u128]);
-from_aint_impl!(u32, [u8, u16, u64, u128]);
-from_aint_impl!(u64, [u8, u16, u32, u128]);
-from_aint_impl!(u128, [u8, u32, u64, u16]);
+from_aint_impl!(u8, [u16, u32, u64]);
+from_aint_impl!(u16, [u8, u32, u64]);
+from_aint_impl!(u32, [u8, u16, u64]);
+from_aint_impl!(u64, [u8, u16, u32]);
 
-from_native_impl!(u8, [u8, u16, u32, u64, u128]);
-from_native_impl!(u16, [u8, u16, u32, u64, u128]);
-from_native_impl!(u32, [u8, u16, u32, u64, u128]);
-from_native_impl!(u64, [u8, u16, u32, u64, u128]);
-from_native_impl!(u128, [u8, u16, u32, u64, u128]);
+from_native_impl!(u8, [u8, u16, u32, u64]);
+from_native_impl!(u16, [u8, u16, u32, u64]);
+from_native_impl!(u32, [u8, u16, u32, u64]);
+from_native_impl!(u64, [u8, u16, u32, u64]);
 
+#[cfg(feature="128")]
+mod aint_128 {
+    use super::*;
+
+    aint_impl_number!(u128);
+
+    from_aint_impl!(u8, [u128]);
+    from_aint_impl!(u16, [u128]);
+    from_aint_impl!(u32, [u128]);
+    from_aint_impl!(u64, [u128]);
+    from_aint_impl!(u128, [u8, u32, u64, u16]);
+
+    from_native_impl!(u8, [u128]);
+    from_native_impl!(u16, [u128]);
+    from_native_impl!(u32, [u128]);
+    from_native_impl!(u64, [u128]);
+    from_native_impl!(u128, [u8, u16, u32, u64, u128]);
+}
+
+#[cfg(feature = "128")]
+pub use aint_128::*;
 
 // from_aint_impl!(i8, [i16, i32, i64, i128]);
 // from_aint_impl!(i16, [i8, i32, i64, i128]);

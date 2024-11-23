@@ -4,7 +4,7 @@ use std::str::FromStr;
 // use std::str::FromStr;
 
 // use crate::{FromStrError, ParseIntXError, ValueOutOfRange};
-// use crate::{IntX, UInt};
+// use crate::{Number, AInt};
 // use seq_macro::seq;
 
 use core::ops::{

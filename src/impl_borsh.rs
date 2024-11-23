@@ -56,7 +56,7 @@ where
 impl<T, const BITS: usize> borsh::BorshSchema for AInt<T, BITS>
 where
     Self: Number<UnderlyingType = T>,
-    T: UnsignedNumberType,
+    T: NumberType,
 {
     fn add_definitions_recursively(
         definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,

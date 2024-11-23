@@ -13,8 +13,7 @@ use core::{
 };
 use seq_macro::seq;
 
-use crate::{Number};
-use super::{AInt};
+use crate::{AInt, Number};
 
 macro_rules! aint_impl_funty {
     ($($type:ident),+) => {
@@ -547,7 +546,9 @@ macro_rules! aint_impl_funty {
     };
 }
 
-aint_impl_funty!(u8, u16, u32, u64, u128);
+aint_impl_funty!(u8, u16, u32, u64);
+
+
 
 // Yes I know, this is pretty horrible. Two things at play here:
 //  1. We can't use const generics to figure out how many bytes we need.
@@ -560,8 +561,8 @@ macro_rules! bytes_operation_impl {
 
         impl funty::Numeric for AInt<$type, $bits>
         where
+            Self: Number<UnderlyingType = $type>,
             Self: funty::Fundamental
-                + Number<UnderlyingType = $type>
                 + Product<Self>
                 + for<'a> Product<&'a Self>
                 + Sum<Self>
@@ -648,19 +649,27 @@ bytes_operation_impl!(u64, 6, 41, 48);
 bytes_operation_impl!(u64, 7, 49, 56);
 bytes_operation_impl!(u64, 8, 57, 64);
 
-bytes_operation_impl!(u128, 1, 1, 8);
-bytes_operation_impl!(u128, 2, 9, 16);
-bytes_operation_impl!(u128, 3, 17, 24);
-bytes_operation_impl!(u128, 4, 25, 32);
-bytes_operation_impl!(u128, 5, 33, 40);
-bytes_operation_impl!(u128, 6, 41, 48);
-bytes_operation_impl!(u128, 7, 49, 56);
-bytes_operation_impl!(u128, 8, 57, 64);
-bytes_operation_impl!(u128, 9, 65, 72);
-bytes_operation_impl!(u128, 10, 73, 80);
-bytes_operation_impl!(u128, 11, 81, 88);
-bytes_operation_impl!(u128, 12, 89, 96);
-bytes_operation_impl!(u128, 13, 97, 104);
-bytes_operation_impl!(u128, 14, 105, 112);
-bytes_operation_impl!(u128, 15, 113, 120);
-bytes_operation_impl!(u128, 16, 121, 128);
+#[cfg(feature="128")]
+mod funty_128 {
+    use super::*;
+
+    aint_impl_funty!(u128);
+
+    bytes_operation_impl!(u128, 1, 1, 8);
+    bytes_operation_impl!(u128, 2, 9, 16);
+    bytes_operation_impl!(u128, 3, 17, 24);
+    bytes_operation_impl!(u128, 4, 25, 32);
+    bytes_operation_impl!(u128, 5, 33, 40);
+    bytes_operation_impl!(u128, 6, 41, 48);
+    bytes_operation_impl!(u128, 7, 49, 56);
+    bytes_operation_impl!(u128, 8, 57, 64);
+    bytes_operation_impl!(u128, 9, 65, 72);
+    bytes_operation_impl!(u128, 10, 73, 80);
+    bytes_operation_impl!(u128, 11, 81, 88);
+    bytes_operation_impl!(u128, 12, 89, 96);
+    bytes_operation_impl!(u128, 13, 97, 104);
+    bytes_operation_impl!(u128, 14, 105, 112);
+    bytes_operation_impl!(u128, 15, 113, 120);
+    bytes_operation_impl!(u128, 16, 121, 128);
+}
+pub use funty_128::*;

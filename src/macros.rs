@@ -25,8 +25,8 @@ macro_rules! native_macro {
     };
 }
 
-native_macro!(u8, u16, u32, u64, u128);
-native_macro!(i8, i16, i32, i64, i128);
+native_macro!(u8, u16, u32, u64);
+// native_macro!(i8, i16, i32, i64);
 
 
 macro_rules! lit_macro {
@@ -42,10 +42,7 @@ macro_rules! lit_macro {
         #[macro_export]
         macro_rules! $ty {
             ($val:literal) => {{
-                const __AINT_LITERAL_VALUE: $ty = match $crate::$ty::new($val) {
-                    Some(__aint_literal_value) => __aint_literal_value,
-                    None => ::core::panic!(::core::concat!("Invalid value for ", ::core::stringify!($ty))),
-                };
+                const __AINT_LITERAL_VALUE: $ty = $crate::$ty::new($val);
                 __AINT_LITERAL_VALUE
             }};
         }
@@ -56,34 +53,44 @@ macro_rules! lit_macro {
 seq!(BITS in 0..8 {
     #(
         lit_macro!(u~BITS);
-        lit_macro!(i~BITS);
+        // lit_macro!(i~BITS);
     )*
 });
 
-seq!(BITS in 9..15 {
+seq!(BITS in 9..16 {
     #(
         lit_macro!(u~BITS);
-        lit_macro!(i~BITS);
+        // lit_macro!(i~BITS);
     )*
 });
 
-seq!(BITS in 17..31 {
+seq!(BITS in 17..32 {
     #(
         lit_macro!(u~BITS);
-        lit_macro!(i~BITS);
+        // lit_macro!(i~BITS);
     )*
 });
 
-seq!(BITS in 33..63 {
+seq!(BITS in 33..64 {
     #(
         lit_macro!(u~BITS);
-        lit_macro!(i~BITS);
+        // lit_macro!(i~BITS);
     )*
 });
 
-seq!(BITS in 65..127 {
-    #(
-        lit_macro!(u~BITS);
-        lit_macro!(i~BITS);
-    )*
-});
+#[cfg(feature = "128")]
+mod macros_128{
+    use super::*;
+
+    native_macro!(u128);
+
+    seq!(BITS in 65..128 {
+        #(
+            lit_macro!(u~BITS);
+            // lit_macro!(i~BITS);
+        )*
+    });
+}
+
+#[cfg(feature = "128")]
+pub use macros_128::*;

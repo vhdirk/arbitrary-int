@@ -10,8 +10,14 @@ mod aliases;
 
 mod error;
 mod util;
+mod macros;
 
 mod impl_core;
+
+pub use aint::{AInt, UnsignedNumberType};
+pub use error::{NumberErrorKind, ParseNumberError, TryNewError};
+pub use traits::{Number, NumberType};
+pub use aliases::*;
 
 #[cfg(feature = "num-traits")]
 mod impl_num_traits;
@@ -33,11 +39,6 @@ mod impl_funty;
 
 #[cfg(feature = "defmt")]
 mod impl_defmt;
-
-pub use error::{NumberErrorKind, ParseNumberError, TryNewError};
-pub use aint::{AInt, UnsignedNumberType};
-pub use traits::{Number, NumberType};
-pub use aliases::*;
 
 #[cfg(test)]
 mod tests;

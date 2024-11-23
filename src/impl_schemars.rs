@@ -7,7 +7,7 @@ use super::{AInt, UnsignedNumberType};
 impl<T, const BITS: usize> JsonSchema for AInt<T, BITS>
 where
     Self: Number<UnderlyingType = T>,
-    T: UnsignedNumberType
+    T: NumberType
 {
     fn schema_name() -> String {
         ["uint", &BITS.to_string()].concat()

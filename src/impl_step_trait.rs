@@ -54,7 +54,7 @@ mod tests {
             AInt<T, BITS>: Step + Number<UnderlyingType = T>,
             T: UnsignedNumberType + Copy + Step,
         {
-            let arbint_range = (arb_start..=arb_end).map(UInt::value);
+            let arbint_range = (arb_start..=arb_end).map(AInt::value);
             let underlying_range = arb_start.value()..=arb_end.value();
 
             assert!(arbint_range.eq(underlying_range));
