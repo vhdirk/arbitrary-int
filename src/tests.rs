@@ -2131,13 +2131,13 @@ mod test_128{
 }
 
 
-// auto_test!(i1, 1, -1, 0);
-// auto_test!(i2, 2, -2, 1);
-// auto_test!(i3, 3, -4, 3);
-// auto_test!(i4, 4, -8, 7);
-// auto_test!(i5, 5, -16, 15);
-// auto_test!(i6, 6, -32, 31);
-// auto_test!(i7, 7, -64, 63);
+auto_test!(i1, 1, -1, 0);
+auto_test!(i2, 2, -2, 1);
+auto_test!(i3, 3, -4, 3);
+auto_test!(i4, 4, -8, 7);
+auto_test!(i5, 5, -16, 15);
+auto_test!(i6, 6, -32, 31);
+auto_test!(i7, 7, -64, 63);
 // auto_test!(i9, 9, -256, 255);
 // auto_test!(i10, 10, -512, 511);
 // auto_test!(i11, 11, -1024, 1023);

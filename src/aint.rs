@@ -101,6 +101,18 @@ macro_rules! aint_impl_number {
     ($( $type:ty),+) => {
         $(
 
+            impl<const BITS: usize> AInt<$type, BITS> {
+
+                pub(crate) const fn sign_bit() -> $type {
+                    if Self::SIGNED {
+                        Self::ONE.value << (BITS - 1)
+                    } else {
+                        Self::ZERO.value
+                    }
+                }
+            }
+
+
             impl<const BITS: usize> Number for AInt<$type, BITS>
             {
                 type UnderlyingType = $type;
@@ -124,28 +136,34 @@ macro_rules! aint_impl_number {
 
                 #[inline]
                 fn try_new(value: Self::UnderlyingType) -> Result<Self, Self::TryNewError> {
-                    if value <= Self::MAX.value {
-                        Ok(Self { value })
-                    } else {
-                        Err(TryNewError { kind: NumberErrorKind::PosOverflow })
-                    }
+                    <Self>::try_new(value)
                 }
 
                 #[inline]
-                fn new(value: $type) -> Self {
-                    assert!(value <= Self::MAX.value);
-
-                    Self { value }
+                fn new(value: Self::UnderlyingType) -> Self {
+                    <Self>::new(value)
                 }
 
                 #[inline]
-                unsafe fn new_unchecked(value: $type) -> Self {
+                unsafe fn new_unchecked(value: Self::UnderlyingType) -> Self {
                     Self { value }
                 }
 
                 #[inline]
                 fn value(self) -> $type {
                     self.value
+                }
+
+                fn new_wrapping(value: Self::UnderlyingType) -> Self {
+                    <Self>::new_wrapping(value)
+                }
+
+                fn new_saturating(value: Self::UnderlyingType) -> (Self, bool) {
+                    <Self>::new_saturating(value)
+                }
+
+                fn new_overflowing(value: Self::UnderlyingType) -> (Self, bool) {
+                    <Self>::new_overflowing(value)
                 }
 
                 // /// Extracts bits from a given value. The extract is equivalent to: `new((value >> start_bit) & MASK)`
@@ -179,6 +197,7 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn new(value: $type) -> Self {
                     assert!(value <= Self::MAX.value);
+                    assert!(value >= Self::MIN.value);
 
                     Self { value }
                 }
@@ -186,10 +205,72 @@ macro_rules! aint_impl {
                 /// Creates an instance or an error if the given value is outside of the valid range
                 #[inline]
                 pub const fn try_new(value: $type) -> Result<Self, TryNewError> {
-                    if value <= Self::MAX.value {
-                        Ok(Self { value })
-                    } else {
+                    if value > Self::MAX.value {
                         Err(TryNewError { kind: NumberErrorKind::PosOverflow})
+                    } else if value < Self::MIN.value {
+                        Err(TryNewError { kind: NumberErrorKind::NegOverflow})
+                    } else {
+                        Ok(Self { value })
+                    }
+                }
+
+                pub const fn new_wrapping(value: $type) -> Self {
+                    if Self::SIGNED {
+                        if (value & Self::MASK) == 0 {
+                            Self{ value: value & Self::MAX.value}
+                        } else {
+                            Self{ value: value | !Self::MAX.value}
+                        }
+                    } else {
+                        Self{ value: value & Self::MAX.value}
+                    }
+                }
+
+                /// Creates a new integer value from the underlying representation type.
+                ///
+                /// The returned value is saturated to the bounds of this integer's value range. If the
+                /// representation value is greater than [`MAX`](Self::MAX), the returned value will be
+                /// [`MAX`](Self::MAX). If the representation value is less than [`MIN`](Self::MIN), the
+                /// returned value will be [`MIN`](Self::MIN).
+                pub const fn new_saturating(value: $type) -> (Self, bool) {
+                    if value >= Self::MAX.value {
+                        (Self::MAX, true)
+                    } else if value <= Self::MIN.value {
+                        (Self::MIN, true)
+                    } else {
+                        (Self{value}, false)
+                    }
+                }
+
+                pub(crate) const fn new_overflowing_impl((value, overflow): ($type, bool)) -> (Self, bool) {
+                    if value > Self::MAX.value {
+                        (Self{ value: value & Self::MAX.value}, true)
+                    } else if value < Self::MIN.value {
+                        (Self{ value: value | !Self::MAX.value}, true)
+                    } else {
+                        (Self{ value }, overflow)
+                    }
+                }
+
+                pub(crate) const fn new_overflowing(value: $type) -> (Self, bool) {
+                    Self::new_overflowing_impl((value, false))
+                }
+
+                /// Returns the sign of the integer.
+                ///
+                /// * If `self < 0`, returns `-1`
+                /// * If `self > 0`, returns `1`
+                /// * If `self == 0`, returns `0`
+                #[inline]
+                pub const fn signum(self) -> Self {
+                    if self.value == Self::ZERO.value {
+                        Self::ZERO
+                    } else if self.value > Self::ZERO.value {
+                        Self::ONE
+                    } else {
+                        // Can not overflow since we just checked
+                        #[allow(arithmetic_overflow)]
+                        Self { value: 0 - 1 }
                     }
                 }
 
@@ -232,14 +313,17 @@ macro_rules! aint_impl {
                 where
                     // From<$type> makes sure that any value of Self will fit in E
                     E: Number + Shr<usize, Output=E> + From<$type> + TryInto<$type>,
+                    E::UnderlyingType: Shr<usize, Output=E::UnderlyingType> + BitAnd<E::UnderlyingType, Output=E::UnderlyingType>,
+                    $type: TryFrom<<E as Number>::UnderlyingType> + Into<E::UnderlyingType>,
+                    <$type as TryFrom<<E as Number>::UnderlyingType>>::Error: Debug,
                     <E as TryInto<$type>>::Error: Debug,
                 {
-                    // TODO: get rid of assert and use errorable
-                    assert!(start_bit + <$type>::BITS as usize <= E::BITS);
+                    if (start_bit + <$type>::BITS as usize) > E::BITS {
+                        return Err(TryNewError{ kind: NumberErrorKind::PosOverflow})
+                    }
 
                     // Unwrap should be safe here since we did a check before
-                    // TODO: handle unwrap
-                    Self::try_new((value >> start_bit).try_into().unwrap())
+                    Ok(Self::new( TryInto::<$type>::try_into((value.value() >> (start_bit)) & Self::MASK.into()).unwrap()))
                 }
 
                 pub fn extract<E>(value: E, start_bit: usize) -> Self
@@ -322,7 +406,7 @@ macro_rules! aint_impl {
 
                     match product {
                         Some(value) => {
-                            if value > Self::MAX.value {
+                            if value < Self::MIN.value || value > Self::MAX.value {
                                 None
                             } else {
                                 Some(Self { value })
@@ -344,7 +428,7 @@ macro_rules! aint_impl {
                 pub const fn checked_pow(self, exp: u32) -> Option<Self> {
                     match self.value.checked_pow(exp) {
                         Some(value) => {
-                            if value > Self::MAX.value {
+                            if value < Self::MIN.value || value > Self::MAX.value {
                                 None
                             } else {
                                 Some(Self { value })
@@ -1107,7 +1191,7 @@ from_native_impl!(u32, [u8, u16, u32, u64]);
 from_native_impl!(u64, [u8, u16, u32, u64]);
 
 #[cfg(feature = "128")]
-mod aint_128 {
+mod uint_128 {
     use super::*;
 
     aint_impl_unsigned!(u128);
@@ -1118,7 +1202,7 @@ mod aint_128 {
     from_aint_impl!(u16, [u128]);
     from_aint_impl!(u32, [u128]);
     from_aint_impl!(u64, [u128]);
-    from_aint_impl!(u128, [u8, u32, u64, u16]);
+    from_aint_impl!(u128, [u8, u16, u32, u64]);
 
     from_native_impl!(u8, [u128]);
     from_native_impl!(u16, [u128]);
@@ -1128,16 +1212,40 @@ mod aint_128 {
 }
 
 #[cfg(feature = "128")]
-pub use aint_128::*;
+pub use uint_128::*;
 
-// from_aint_impl!(i8, [i16, i32, i64, i128]);
-// from_aint_impl!(i16, [i8, i32, i64, i128]);
-// from_aint_impl!(i32, [i8, i16, i64, i128]);
-// from_aint_impl!(i64, [i8, i16, i32, i128]);
-// from_aint_impl!(i128, [i8, i32, i64, i16]);
+from_aint_impl!(i8, [i16, i32, i64]);
+from_aint_impl!(i16, [i8, i32, i64]);
+from_aint_impl!(i32, [i8, i16, i64]);
+from_aint_impl!(i64, [i8, i16, i32]);
 
-// from_native_impl!(i8, [i8, i16, i32, i64, i128]);
-// from_native_impl!(i16, [i8, i16, i32, i64, i128]);
-// from_native_impl!(i32, [i8, i16, i32, i64, i128]);
-// from_native_impl!(i64, [i8, i16, i32, i64, i128]);
-// from_native_impl!(i128, [i8, i16, i32, i64, i128]);
+from_native_impl!(i8, [i8, i16, i32, i64]);
+from_native_impl!(i16, [i8, i16, i32, i64]);
+from_native_impl!(i32, [i8, i16, i32, i64]);
+from_native_impl!(i64, [i8, i16, i32, i64]);
+
+
+#[cfg(feature = "128")]
+mod int_128 {
+    use super::*;
+
+    aint_impl_unsigned!(i128);
+    aint_impl!(i128);
+    aint_impl_number!(i128);
+
+    from_aint_impl!(i8, [i128]);
+    from_aint_impl!(i16, [i128]);
+    from_aint_impl!(i32, [i128]);
+    from_aint_impl!(i64, [i128]);
+    from_aint_impl!(i128, [i8, i16, i32, i64]);
+
+    from_native_impl!(i8, [i128]);
+    from_native_impl!(i16, [i128]);
+    from_native_impl!(i32, [i128]);
+    from_native_impl!(i64, [i128]);
+    from_native_impl!(i128, [i8, i16, i32, i64, i128]);
+}
+
+#[cfg(feature = "128")]
+pub use int_128::*;
+

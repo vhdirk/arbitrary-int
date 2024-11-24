@@ -54,8 +54,15 @@ where
 
     fn try_new(value: Self::UnderlyingType) -> Result<Self, TryNewError>;
 
+    fn new_wrapping(value: Self::UnderlyingType) -> Self;
+
+    fn new_saturating(value: Self::UnderlyingType) -> (Self, bool);
+
+    fn new_overflowing(value: Self::UnderlyingType) -> (Self, bool);
+
     /// Returns the type as a fundamental data type
     fn value(self) -> Self::UnderlyingType;
+
 
     /// Initializes a new value without checking the bounds
     ///
@@ -88,16 +95,38 @@ macro_rules! impl_native {
 
 
                 #[inline]
-                fn new(value: Self::UnderlyingType) -> Self { value }
+                fn new(value: Self::UnderlyingType) -> Self {
+                    value
+                }
 
                 #[inline]
-                fn try_new(value: Self::UnderlyingType) -> Result<Self, Self::TryNewError> { Ok(value) }
+                fn try_new(value: Self::UnderlyingType) -> Result<Self, Self::TryNewError> {
+                    Ok(value)
+                }
 
                 #[inline]
-                unsafe fn new_unchecked(value: Self::UnderlyingType) -> Self { value }
+                fn new_wrapping(value: Self::UnderlyingType) -> Self {
+                    value
+                }
 
                 #[inline]
-                fn value(self) -> Self::UnderlyingType { self }
+                fn new_saturating(value: Self::UnderlyingType) -> (Self, bool) {
+                    (value, false)
+                }
+
+                fn new_overflowing(value: Self::UnderlyingType) -> (Self, bool) {
+                    (value, false)
+                }
+
+                #[inline]
+                unsafe fn new_unchecked(value: Self::UnderlyingType) -> Self {
+                    value
+                }
+
+                #[inline]
+                fn value(self) -> Self::UnderlyingType {
+                    self
+                }
             }
         )+
     };
