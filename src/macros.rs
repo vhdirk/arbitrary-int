@@ -6,12 +6,12 @@ use crate::*;
 macro_rules! native_macro {
     ($($type:ident),+) => {
         $(
-            #[doc=core::concat!("Returns a [`", core::stringify!($ty), "`](type@", core::stringify!($ty), ") checked at compile time.")]
+            #[doc=core::concat!("Returns a [`", core::stringify!($type), "`](type@", core::stringify!($type), ") checked at compile time.")]
             #[doc=""]
             #[doc="# Example"]
             #[doc="```"]
             #[doc="# use arbitrary_int::*;"]
-            #[doc=core::concat!("let x = ", core::stringify!($ty), "!(0);")]
+            #[doc=core::concat!("let x = ", core::stringify!($type), "!(0);")]
             #[doc="assert_eq!(x.value(), 0);"]
             #[doc="```"]
             #[macro_export]
@@ -30,19 +30,19 @@ native_macro!(u8, u16, u32, u64);
 
 
 macro_rules! lit_macro {
-    ($ty:ident) => {
-        #[doc=core::concat!("Returns a [`", core::stringify!($ty), "`](type@", core::stringify!($ty), ") checked at compile time.")]
+    ($type:ident) => {
+        #[doc=core::concat!("Returns a [`", core::stringify!($type), "`](type@", core::stringify!($type), ") checked at compile time.")]
         #[doc=""]
         #[doc="# Example"]
         #[doc="```"]
         #[doc="# use arbitrary_int::*;"]
-        #[doc=core::concat!("let x = ", core::stringify!($ty), "!(0);")]
+        #[doc=core::concat!("let x = ", core::stringify!($type), "!(0);")]
         #[doc="assert_eq!(x.value(), 0);"]
         #[doc="```"]
         #[macro_export]
-        macro_rules! $ty {
+        macro_rules! $type {
             ($val:literal) => {{
-                const __AINT_LITERAL_VALUE: $ty = $crate::$ty::new($val);
+                const __AINT_LITERAL_VALUE: $type = $crate::$type::new($val);
                 __AINT_LITERAL_VALUE
             }};
         }
@@ -50,7 +50,7 @@ macro_rules! lit_macro {
 }
 
 
-seq!(BITS in 0..8 {
+seq!(BITS in 1..8 {
     #(
         lit_macro!(u~BITS);
         // lit_macro!(i~BITS);

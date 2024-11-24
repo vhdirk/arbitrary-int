@@ -14,9 +14,9 @@ mod macros;
 
 mod impl_core;
 
-pub use aint::{AInt, UnsignedNumberType};
+pub use aint::{AInt};
 pub use error::{NumberErrorKind, ParseNumberError, TryNewError};
-pub use traits::{Number, NumberType};
+pub use traits::{Number, NumberType, UnsignedNumberType, SignedNumberType};
 pub use aliases::*;
 
 #[cfg(feature = "num-traits")]

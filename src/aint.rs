@@ -1,21 +1,12 @@
+use crate::traits::{Unsigned, Signed};
+use crate::util::CompileTimeAssert;
+use crate::{Number, NumberErrorKind, NumberType, ParseNumberError, SignedNumberType, TryNewError, UnsignedNumberType};
 use core::fmt;
 use std::fmt::Debug;
-use std::ops::Shr;
-use crate::{Number, NumberErrorKind, NumberType, ParseNumberError, TryNewError};
-use crate::util::CompileTimeAssert;
-
-
-pub trait UnsignedNumberType:
-    NumberType + From<u8> + TryFrom<u16> + TryFrom<u32> + TryFrom<u64> + TryFrom<u128>
-{
-}
-
-impl<T> UnsignedNumberType for T where
-    T: NumberType + From<u8> + TryFrom<u16> + TryFrom<u32> + TryFrom<u64> + TryFrom<u128>
-{
-}
+use std::ops::{Shr, BitAnd};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[repr(transparent)]
 pub struct AInt<T, const BITS: usize>
 where
     T: NumberType,
@@ -35,7 +26,7 @@ where
 
 impl<T, const BITS: usize> AInt<T, BITS>
 where
-    T: UnsignedNumberType,
+    T: NumberType,
 {
     #[inline]
     pub const fn value(self) -> T {
@@ -52,6 +43,60 @@ where
     }
 }
 
+macro_rules! aint_impl_unsigned {
+    ($($type:ident),+) => {
+        $(
+            impl<const BITS: usize> AInt<$type, BITS> {
+
+                pub const BITS: usize = BITS;
+                pub const BYTES: usize = (BITS + 7usize) / 8usize;
+
+                pub const ZERO: Self = Self { value: 0 };
+                pub const ONE: Self = Self {value: 1 };
+
+                pub const MIN: Self = Self::ZERO;
+
+                // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
+                // we will get a compiler error right here
+                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS as usize - Self::BITS)) };
+
+                pub const SIGNED: bool = false;
+
+                pub(crate) const MASK: $type = Self::MAX.value;
+            }
+        )+
+    }
+}
+
+aint_impl_unsigned!(u8, u16, u32, u64);
+
+macro_rules! aint_impl_signed {
+    ($($type:ident),+) => {
+        $(
+            impl<const BITS: usize> AInt<$type, BITS> {
+
+                pub const BITS: usize = BITS;
+                pub const BYTES: usize = (BITS + 7usize) / 8usize;
+
+                pub const ZERO: Self = Self { value: 0 };
+                pub const ONE: Self = Self {value: 1 };
+
+                pub const MIN: Self = Self { value: (<$type>::MIN >> (<$type>::BITS as usize - Self::BITS)) };
+
+                // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
+                // we will get a compiler error right here
+                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS as usize - Self::BITS)) };
+
+                pub const SIGNED: bool = true;
+
+                pub(crate) const MASK: $type = (1 << Self::BITS) - 1;
+            }
+        )+
+    }
+}
+
+aint_impl_signed!(i8, i16, i32, i64);
+
 macro_rules! aint_impl_number {
     ($( $type:ty),+) => {
         $(
@@ -65,6 +110,8 @@ macro_rules! aint_impl_number {
 
                 const BYTES: usize = (BITS + 7usize) / 8usize;
 
+                const SIGNED: bool = <Self>::SIGNED;
+
                 const MIN: Self = <Self>::MIN;
 
                 const MAX: Self = <Self>::MAX;
@@ -73,8 +120,7 @@ macro_rules! aint_impl_number {
 
                 const ONE: Self = <Self>::ONE;
 
-                #[allow(unused_comparisons)]
-                const SIGNED: bool = <$type>::MIN  < 0;
+                const MASK: $type = <Self>::MASK;
 
                 #[inline]
                 fn try_new(value: Self::UnderlyingType) -> Result<Self, Self::TryNewError> {
@@ -121,26 +167,13 @@ macro_rules! aint_impl_number {
     };
 }
 aint_impl_number!(u8, u16, u32, u64);
+aint_impl_number!(i8, i16, i32, i64);
 
-
-macro_rules! aint_impl_unsigned {
+macro_rules! aint_impl {
     ($($type:ident),+) => {
         $(
+
             impl<const BITS: usize> AInt<$type, BITS> {
-
-                pub const BITS: usize = BITS;
-                pub const BYTES: usize = (BITS + 7usize) / 8usize;
-
-                pub const ZERO: Self = Self { value: 0 };
-                pub const ONE: Self = Self {value: 1 };
-
-                pub const MIN: Self = Self::ZERO;
-
-                // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
-                // we will get a compiler error right here
-                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS as usize - Self::BITS)) };
-
-                // pub const MASK: $type = Self::MAX.value;
 
                 /// Creates an instance. Panics if the given value is outside of the valid range
                 #[inline]
@@ -213,12 +246,15 @@ macro_rules! aint_impl_unsigned {
                 where
                     // From<$type> makes sure that any value of Self will fit in E
                     E: Number + Shr<usize, Output=E> + From<$type> + TryInto<$type>,
+                    E::UnderlyingType: Shr<usize, Output=E::UnderlyingType> + BitAnd<E::UnderlyingType, Output=E::UnderlyingType>,
+                    $type: TryFrom<<E as Number>::UnderlyingType> + Into<E::UnderlyingType>,
+                    <$type as TryFrom<<E as Number>::UnderlyingType>>::Error: Debug,
                     <E as TryInto<$type>>::Error: Debug,
                 {
-                    assert!(start_bit + <$type>::BITS as usize <= E::BITS);
+                    assert!(start_bit + Self::BITS as usize <= E::BITS);
 
                     // Unwrap should be safe here since we did a check before
-                    Self::new((value >> start_bit).try_into().unwrap())
+                    Self::new( TryInto::<$type>::try_into((value.value() >> (start_bit)) & Self::MASK.into()).unwrap())
                 }
 
                 /// Returns a AInt with a wider bit depth but with the same base data type
@@ -395,42 +431,28 @@ macro_rules! aint_impl_unsigned {
                 #[cfg(not(feature="generic_const_exprs"))]
                 #[inline]
                 pub const fn from_be_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
-                    const { assert!(BYTES == Self::BYTES); }
+                    const { assert!(BYTES <= Self::BYTES); }
 
                     let mut value: $type = 0;
 
-                    let mut bx = 0;
-
-                    while bx < Self::BYTES {
-                        value |= if BITS > (8 * (bx + 1)) {
-                            (from[bx] as $type) << (BITS - 8 * (bx + 1))
-                        } else {
-                            // For the last partial byte, shift just enough to align the remaining bits
-                            (from[bx] as $type) << (8 * bx)
-                        };
-                        bx += 1;
+                    let mut bi = 0;
+                    while bi < BYTES {
+                        value |= (from[BYTES - 1 - bi] as $type) << (bi * 8);
+                        bi += 1;
                     }
-
-                    Self { value }
+                    Self { value: value & Self::MASK }
                 }
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
                 pub const fn from_be_bytes(from: [u8; AInt::<$type, BITS>::BYTES] ) -> Self {
                     let mut value: $type = 0;
-
-                    let mut bx = 0;
-                    while bx < Self::BYTES {
-                        value |= if BITS > (8 * (bx + 1)) {
-                            (from[bx] as $type) << (BITS - 8 * (bx + 1))
-                        } else {
-                            // For the last partial byte, shift just enough to align the remaining bits
-                            (from[bx] as $type) << (8 * bx)
-                        };
-                        bx += 1;
+                    let mut bi = 0;
+                    while bi < Self::BYTES {
+                        value |= (from[Self::BYTES - 1 - bi] as $type) << (bi * 8);
+                        bi += 1;
                     }
-
-                    Self { value }
+                    Self { value: value & Self::MASK }
                 }
 
                 #[inline]
@@ -441,17 +463,17 @@ macro_rules! aint_impl_unsigned {
                 #[cfg(not(feature="generic_const_exprs"))]
                 #[inline]
                 pub const fn from_le_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
-                    const { assert!(BYTES == Self::BYTES); }
+                    const { assert!(BYTES <= Self::BYTES); }
 
                     let mut value: $type = 0;
                     let mut bx = 0;
 
-                    while bx < Self::BYTES {
-                        value |= ((from[bx] as $type) * 8);
+                    while bx < BYTES {
+                        value |= (from[bx] as $type) << (bx * 8);
                         bx += 1;
                     }
 
-                    Self { value }
+                    Self { value: value & Self::MASK }
                 }
 
                 #[cfg(feature="generic_const_exprs")]
@@ -462,11 +484,11 @@ macro_rules! aint_impl_unsigned {
                     let mut bx = 0;
 
                     while bx < Self::BYTES {
-                        value |= ((from[bx] as $type) * 8);
+                        value |= (from[bx] as $type) << (bx * 8);
                         bx += 1;
                     }
 
-                    Self { value }
+                    Self { value: value & Self::MASK }
                 }
 
                 #[cfg(not(feature="generic_const_exprs"))]
@@ -803,13 +825,10 @@ macro_rules! aint_impl_unsigned {
 
                     let mut ret = [0; BYTES];
 
-                    let tmp = self.value.to_be_bytes();
-                    let offset = <$type>::BYTES - Self::BYTES;
-
-                    let mut bx = 0;
-                    while bx < <$type>::BYTES {
-                        ret[bx] = tmp[bx + offset];
-                        bx += 1;
+                    let mut bi = 0;
+                    while bi < BYTES {
+                        ret[BYTES - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
+                        bi += 1;
                     }
                     ret
                 }
@@ -819,18 +838,10 @@ macro_rules! aint_impl_unsigned {
                 pub const fn to_be_bytes(self) -> [u8; AInt::<$type, BITS>::BYTES] {
                     let mut ret = [0; Self::BYTES];
 
-                    let mut bx = 0;
-
-                    while bx < Self::BYTES {
-                        ret[bx] =
-                            if Self::BITS - ((bx + 1) << 3) > 0 {
-                                (self.value >> (Self::BITS - (bx + 1) * 8)) as u8
-                            } else {
-                                // Only mask the relevant part for the last few bits
-                                (self.value << ((bx + 1) * 8 - Self::BITS)) as u8
-                            };
-
-                        bx += 1;
+                    let mut bi = 0;
+                    while bi < Self::BYTES {
+                        ret[Self::BYTES - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
+                        bi += 1;
                     }
                     ret
                 }
@@ -855,13 +866,10 @@ macro_rules! aint_impl_unsigned {
 
                     let mut ret = [0; BYTES];
 
-                    let tmp = self.value.to_le_bytes();
-                    let offset = <$type>::BYTES - Self::BYTES;
-
-                    let mut bx = 0;
-                    while bx < <$type>::BYTES {
-                        ret[bx] = tmp[bx + offset];
-                        bx += 1;
+                    let mut bi = 0;
+                    while bi < BYTES {
+                        ret[bi] = (self.value >> (bi * 8)) as u8;
+                        bi += 1;
                     }
                     ret
                 }
@@ -871,10 +879,10 @@ macro_rules! aint_impl_unsigned {
                 pub const fn to_le_bytes(self) -> [u8; AInt::<$type, BITS>::BYTES] {
                     let mut ret = [0; Self::BYTES];
 
-                    let mut bx = 0;
-                    while bx < Self::BYTES {
-                        ret[bx] = (self.value >> (bx * 8)) as u8;
-                        bx += 1;
+                    let mut bi = 0;
+                    while bi < Self::BYTES {
+                        ret[bi] = (self.value >> (bi * 8)) as u8;
+                        bi += 1;
                     }
                     ret
                 }
@@ -1030,7 +1038,23 @@ macro_rules! aint_impl_unsigned {
     }
 }
 
-aint_impl_unsigned!(u8, u16, u32, u64);
+aint_impl!(u8, u16, u32, u64);
+aint_impl!(i8, i16, i32, i64);
+
+impl<T, const BITS: usize> Unsigned for AInt<T, BITS>
+where
+    Self: Number<UnderlyingType = T>,
+    T: NumberType + Unsigned,
+{
+}
+
+impl<T, const BITS: usize> Signed for AInt<T, BITS>
+where
+    Self: Number<UnderlyingType = T>,
+    T: NumberType + Signed,
+{
+}
+
 
 
 // Conversions
@@ -1082,13 +1106,13 @@ from_native_impl!(u16, [u8, u16, u32, u64]);
 from_native_impl!(u32, [u8, u16, u32, u64]);
 from_native_impl!(u64, [u8, u16, u32, u64]);
 
-#[cfg(feature="128")]
+#[cfg(feature = "128")]
 mod aint_128 {
     use super::*;
 
-    aint_impl_number!(u128);
     aint_impl_unsigned!(u128);
-
+    aint_impl!(u128);
+    aint_impl_number!(u128);
 
     from_aint_impl!(u8, [u128]);
     from_aint_impl!(u16, [u128]);
@@ -1117,5 +1141,3 @@ pub use aint_128::*;
 // from_native_impl!(i32, [i8, i16, i32, i64, i128]);
 // from_native_impl!(i64, [i8, i16, i32, i64, i128]);
 // from_native_impl!(i128, [i8, i16, i32, i64, i128]);
-
-

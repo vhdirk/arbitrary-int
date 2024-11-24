@@ -25,14 +25,6 @@ where
     }
 }
 
-impl<T, const BITS: usize> AInt<T, BITS>
-where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType,
-{
-    pub const MASK: T = Self::MAX.value;
-}
-
 impl<T, const BITS: usize> Add for AInt<T, BITS>
 where
     Self: Number<UnderlyingType=T>,
