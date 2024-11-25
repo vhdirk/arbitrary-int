@@ -10,7 +10,7 @@ use core::ops::{
 };
 use std::num::ParseIntError;
 
-use crate::{Number, NumberErrorKind, ParseNumberError};
+use crate::{Number, AIntErrorKind, ParseAIntError};
 
 use crate::{AInt, UnsignedNumberType};
 
@@ -457,18 +457,18 @@ where
     Self: Number<UnderlyingType=T>,
     T: UnsignedNumberType + FromStr<Err = ParseIntError>,
 {
-    type Err = ParseNumberError;
+    type Err = ParseAIntError;
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = match T::from_str(s) {
             Ok(v) => v,
-            Err(err) => return Err(ParseNumberError::from_native(err)),
+            Err(err) => return Err(ParseAIntError::from_native(err)),
         };
 
         match value {
-            v if v < Self::MIN.value => Err(ParseNumberError{ kind: NumberErrorKind::NegOverflow }),
-            v if v > Self::MAX.value => Err(ParseNumberError{ kind: NumberErrorKind::PosOverflow }),
+            v if v < Self::MIN.value => Err(ParseAIntError{ kind: AIntErrorKind::NegOverflow }),
+            v if v > Self::MAX.value => Err(ParseAIntError{ kind: AIntErrorKind::PosOverflow }),
             v => Ok(Self { value: v })
         }
     }

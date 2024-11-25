@@ -44,7 +44,7 @@ macro_rules! lit_macro {
             ($val:literal) => {{
                 const __AINT_LITERAL_VALUE: $type = match $crate::$type::try_new($val) {
                     Ok(__aint_literal_value) => __aint_literal_value,
-                    Err(_) => ::core::panic!(::core::concat!("Invalid value for ", ::core::stringify!($ty))),
+                    Err(_) => ::core::panic!(::core::concat!("Invalid value for ", ::core::stringify!($type))),
                 };
                 __AINT_LITERAL_VALUE
             }};
@@ -96,5 +96,3 @@ mod macros_128{
     });
 }
 
-#[cfg(feature = "128")]
-pub use macros_128::*;

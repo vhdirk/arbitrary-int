@@ -18,7 +18,7 @@ use std::{
 /// # }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum NumberErrorKind {
+pub enum AIntErrorKind {
     /// Value being parsed is empty.
     ///
     /// This variant will be constructed when parsing an empty string.
@@ -45,23 +45,23 @@ pub enum NumberErrorKind {
     Unknown,
 }
 
-impl NumberErrorKind {
+impl AIntErrorKind {
     pub const fn from_native(kind: &IntErrorKind) -> Self {
         use std::num::IntErrorKind::*;
         match kind {
-            &Empty => NumberErrorKind::Empty,
-            &InvalidDigit => NumberErrorKind::InvalidDigit,
-            &PosOverflow => NumberErrorKind::PosOverflow,
-            &NegOverflow => NumberErrorKind::NegOverflow,
-            &Zero => NumberErrorKind::Zero,
-            _ => NumberErrorKind::Unknown,
+            &Empty => AIntErrorKind::Empty,
+            &InvalidDigit => AIntErrorKind::InvalidDigit,
+            &PosOverflow => AIntErrorKind::PosOverflow,
+            &NegOverflow => AIntErrorKind::NegOverflow,
+            &Zero => AIntErrorKind::Zero,
+            _ => AIntErrorKind::Unknown,
         }
     }
 }
 
-impl fmt::Display for NumberErrorKind {
+impl fmt::Display for AIntErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use NumberErrorKind::*;
+        use AIntErrorKind::*;
         match self {
             Empty => "cannot parse integer from empty string",
             InvalidDigit => "invalid digit found in string",
@@ -93,36 +93,36 @@ impl fmt::Display for NumberErrorKind {
 /// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct ParseNumberError {
-    pub(crate) kind: NumberErrorKind,
+pub struct ParseAIntError {
+    pub(crate) kind: AIntErrorKind,
 }
 
 
-impl ParseNumberError {
+impl ParseAIntError {
     /// Outputs the detailed cause of parsing an integer failing.
-    pub const fn kind(&self) -> &NumberErrorKind {
+    pub const fn kind(&self) -> &AIntErrorKind {
         &self.kind
     }
 
     pub const fn from_native(err: ParseIntError) -> Self {
         Self {
-            kind: NumberErrorKind::from_native(err.kind()),
+            kind: AIntErrorKind::from_native(err.kind()),
         }
     }
 }
 
-impl fmt::Display for ParseNumberError {
+impl fmt::Display for ParseAIntError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.kind.fmt(f)
     }
 }
 
-impl Error for ParseNumberError {}
+impl Error for ParseAIntError {}
 
-impl Into<ParseIntError> for ParseNumberError {
+impl Into<ParseIntError> for ParseAIntError {
     fn into(self) -> ParseIntError {
         // we can't construct a ParseIntError. But we can trigger one :)
-        use NumberErrorKind::*;
+        use AIntErrorKind::*;
         use std::num::NonZeroU8;
         match self.kind {
             Empty => "".parse::<u8>().unwrap_err(),
@@ -138,12 +138,12 @@ impl Into<ParseIntError> for ParseNumberError {
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct TryNewError {
-    pub(crate) kind: NumberErrorKind,
+    pub(crate) kind: AIntErrorKind,
 }
 
 impl TryNewError {
     /// Outputs the detailed cause of parsing an integer failing.
-    pub const fn kind(&self) -> &NumberErrorKind {
+    pub const fn kind(&self) -> &AIntErrorKind {
         &self.kind
     }
 }

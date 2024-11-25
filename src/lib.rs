@@ -1,23 +1,27 @@
 #![cfg_attr(feature = "step_trait", feature(step_trait))]
-#![cfg_attr(feature = "generic_const_exprs", feature(generic_const_exprs), allow(incomplete_features))]
+#![cfg_attr(
+    feature = "generic_const_exprs",
+    feature(generic_const_exprs),
+    allow(incomplete_features)
+)]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
 mod aint;
-mod traits;
 mod aliases;
+mod traits;
 
 mod error;
-mod util;
 mod macros;
+mod util;
 
 mod impl_core;
 
-pub use aint::{AInt};
-pub use error::{NumberErrorKind, ParseNumberError, TryNewError};
-pub use traits::{Number, NumberType, UnsignedNumberType, SignedNumberType};
+pub use aint::AInt;
 pub use aliases::*;
+pub use error::{AIntErrorKind, ParseAIntError, TryNewError};
+pub use traits::{Number, NumberType, SignedNumberType, UnsignedNumberType};
 
 #[cfg(feature = "num-traits")]
 mod impl_num_traits;

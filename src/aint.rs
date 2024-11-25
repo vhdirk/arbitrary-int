@@ -1,6 +1,6 @@
 use crate::traits::{Unsigned, Signed};
 use crate::util::CompileTimeAssert;
-use crate::{Number, NumberErrorKind, NumberType, ParseNumberError, SignedNumberType, TryNewError, UnsignedNumberType};
+use crate::{Number, AIntErrorKind, NumberType, ParseAIntError, SignedNumberType, TryNewError, UnsignedNumberType};
 use core::fmt;
 use std::fmt::Debug;
 use std::ops::{Shr, BitAnd};
@@ -206,9 +206,9 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn try_new(value: $type) -> Result<Self, TryNewError> {
                     if value > Self::MAX.value {
-                        Err(TryNewError { kind: NumberErrorKind::PosOverflow})
+                        Err(TryNewError { kind: AIntErrorKind::PosOverflow})
                     } else if value < Self::MIN.value {
-                        Err(TryNewError { kind: NumberErrorKind::NegOverflow})
+                        Err(TryNewError { kind: AIntErrorKind::NegOverflow})
                     } else {
                         Ok(Self { value })
                     }
@@ -319,7 +319,7 @@ macro_rules! aint_impl {
                     <E as TryInto<$type>>::Error: Debug,
                 {
                     if (start_bit + <$type>::BITS as usize) > E::BITS {
-                        return Err(TryNewError{ kind: NumberErrorKind::PosOverflow})
+                        return Err(TryNewError{ kind: AIntErrorKind::PosOverflow})
                     }
 
                     // Unwrap should be safe here since we did a check before
@@ -603,15 +603,15 @@ macro_rules! aint_impl {
 
 
                 #[inline]
-                pub const fn from_str_radix(s: &str, radix: u32) -> Result<Self, ParseNumberError> {
+                pub const fn from_str_radix(s: &str, radix: u32) -> Result<Self, ParseAIntError> {
                     let value = match $type::from_str_radix(s, radix) {
                         Ok(v) => v,
-                        Err(err) => return Err(ParseNumberError::from_native(err)),
+                        Err(err) => return Err(ParseAIntError::from_native(err)),
                     };
 
                     match value {
-                        v if v < Self::MIN.value => Err(ParseNumberError{ kind: NumberErrorKind::NegOverflow }),
-                        v if v > Self::MAX.value => Err(ParseNumberError{ kind: NumberErrorKind::PosOverflow }),
+                        v if v < Self::MIN.value => Err(ParseAIntError{ kind: AIntErrorKind::NegOverflow }),
+                        v if v > Self::MAX.value => Err(ParseAIntError{ kind: AIntErrorKind::PosOverflow }),
                         v => Ok(Self { value: v })
                     }
                 }
@@ -1211,8 +1211,6 @@ mod uint_128 {
     from_native_impl!(u128, [u8, u16, u32, u64, u128]);
 }
 
-#[cfg(feature = "128")]
-pub use uint_128::*;
 
 from_aint_impl!(i8, [i16, i32, i64]);
 from_aint_impl!(i16, [i8, i32, i64]);
@@ -1246,6 +1244,4 @@ mod int_128 {
     from_native_impl!(i128, [i8, i16, i32, i64, i128]);
 }
 
-#[cfg(feature = "128")]
-pub use int_128::*;
 
