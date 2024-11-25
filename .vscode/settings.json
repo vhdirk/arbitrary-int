@@ -1,0 +1,14 @@
+{
+  "rust-analyzer.cargo.noDefaultFeatures": true,
+
+  "rust-analyzer.cargo.features": [
+    "std",
+    "128",
+    // "num-traits",
+    // "borsh",
+    // "serde",
+    // "defmt",
+    // "schemars",
+    "funty",
+  ]
+}
