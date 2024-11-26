@@ -81,18 +81,22 @@ seq!(BITS in 33..64 {
     )*
 });
 
+
+
 #[cfg(feature = "128")]
-mod macros_128{
-    use super::*;
+native_macro!(u128);
 
-    native_macro!(u128);
-    native_macro!(i128);
+#[cfg(feature = "128")]
+native_macro!(i128);
 
-    seq!(BITS in 65..128 {
-        #(
-            lit_macro!(u~BITS);
-            lit_macro!(i~BITS);
-        )*
-    });
-}
+#[cfg(feature = "128")]
+seq!(BITS in 65..128 {
+    #(
+        #[cfg(feature = "128")]
+        lit_macro!(u~BITS);
+
+        #[cfg(feature = "128")]
+        lit_macro!(i~BITS);
+    )*
+});
 

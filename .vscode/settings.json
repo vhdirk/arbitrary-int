@@ -10,5 +10,6 @@
     // "defmt",
     // "schemars",
     "funty",
-  ]
+  ],
+
 }

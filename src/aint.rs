@@ -1227,7 +1227,7 @@ from_native_impl!(i64, [i8, i16, i32, i64]);
 mod int_128 {
     use super::*;
 
-    aint_impl_unsigned!(i128);
+    aint_impl_signed!(i128);
     aint_impl!(i128);
     aint_impl_number!(i128);
 

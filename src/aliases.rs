@@ -37,20 +37,18 @@ seq!(BITS in 33..64 {
     )*
 });
 
-#[cfg(feature = "128")]
-mod aliases_128 {
-    use super::*;
-
-    seq!(BITS in 65..128 {
-        #(
-            type_alias!(u128,(u~BITS, BITS));
-            type_alias!(i128,(i~BITS, BITS));
-        )*
-    });
-}
 
 #[cfg(feature = "128")]
-pub use aliases_128::*;
+seq!(BITS in 65..128 {
+    #(
+        #[cfg(feature = "128")]
+        type_alias!(u128,(u~BITS, BITS));
+
+        #[cfg(feature = "128")]
+        type_alias!(i128,(i~BITS, BITS));
+    )*
+});
+
 
 // We need to wrap this in a macro, currently: https://github.com/rust-lang/rust/issues/67792#issuecomment-1130369066
 macro_rules! boolu1 {
