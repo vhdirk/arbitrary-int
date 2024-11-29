@@ -47,7 +47,7 @@ pub enum AIntErrorKind {
 
 impl AIntErrorKind {
     pub const fn from_native(kind: &IntErrorKind) -> Self {
-        use std::num::IntErrorKind::*;
+        use core::num::IntErrorKind::*;
         match kind {
             &Empty => AIntErrorKind::Empty,
             &InvalidDigit => AIntErrorKind::InvalidDigit,
@@ -123,7 +123,7 @@ impl Into<ParseIntError> for ParseAIntError {
     fn into(self) -> ParseIntError {
         // we can't construct a ParseIntError. But we can trigger one :)
         use AIntErrorKind::*;
-        use std::num::NonZeroU8;
+        use core::num::NonZeroU8;
         match self.kind {
             Empty => "".parse::<u8>().unwrap_err(),
             InvalidDigit => "q".parse::<u8>().unwrap_err(),

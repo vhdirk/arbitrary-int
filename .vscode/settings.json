@@ -3,10 +3,9 @@
 
   "rust-analyzer.cargo.features": [
     "std",
-    "128",
-    // "num-traits",
-    // "borsh",
-    // "serde",
+    "num-traits",
+    "borsh",
+    "serde",
     // "defmt",
     // "schemars",
     "funty",

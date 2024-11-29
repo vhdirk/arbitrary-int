@@ -11,6 +11,7 @@ extern crate alloc;
 mod aint;
 mod aliases;
 mod traits;
+mod convert;
 
 mod error;
 mod macros;
@@ -21,7 +22,7 @@ mod impl_core;
 pub use aint::AInt;
 pub use aliases::*;
 pub use error::{AIntErrorKind, ParseAIntError, TryNewError};
-pub use traits::{Number, NumberType, SignedNumberType, UnsignedNumberType};
+pub use traits::{Number, AIntContainer, SignedNumberType, UnsignedNumberType};
 
 #[cfg(feature = "num-traits")]
 mod impl_num_traits;

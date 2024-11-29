@@ -1,17 +1,10 @@
 extern crate core;
 
+use crate::*;
 use std::collections::HashMap;
 
-use std::num::ParseIntError;
-
-use crate::*;
-
-use crate::aliases::*;
-use crate::error::{AIntErrorKind, ParseAIntError};
+use crate::error::{AIntErrorKind, TryNewError};
 use crate::AInt;
-use crate::{error::TryNewError, Number};
-
-use paste::paste;
 
 #[test]
 fn constants() {
@@ -33,14 +26,13 @@ fn constants() {
 #[test]
 fn create_simple() {
     let value7 = u7::new(123);
-    let value8 = AInt::<u8, 8>::new(189);
+    let value8 = AInt::<u8, typenum::U8>::new(189);
 
     let value13 = u13::new(123);
-    let value16 = AInt::<u16, 16>::new(60000);
+    let value16 = AInt::<u16, typenum::U16>::new(60000);
 
     let value23 = u23::new(123);
 
-    #[cfg(feature = "128")]
     let value67 = u67::new(123);
 
     assert_eq!(value7.value(), 123);
@@ -51,7 +43,6 @@ fn create_simple() {
 
     assert_eq!(value23.value(), 123);
 
-    #[cfg(feature = "128")]
     assert_eq!(value67.value(), 123);
 }
 
@@ -90,7 +81,6 @@ fn create_panic_u63() {
     u63::new(0x8000_0000_0000_0000);
 }
 
-#[cfg(feature = "128")]
 #[test]
 #[should_panic]
 fn create_panic_u127() {
@@ -137,14 +127,11 @@ fn num_traits_sub_wrapping() {
 #[cfg(feature = "num-traits")]
 #[test]
 fn num_traits_bounded() {
-    use num_traits::bounds::Bounded;
     assert_eq!(u7::MAX, u7::max_value());
 
-    #[cfg(feature = "128")]
     assert_eq!(u119::MAX, u119::max_value());
     assert_eq!(u7::new(0), u7::min_value());
 
-    #[cfg(feature = "128")]
     assert_eq!(u119::new(0), u119::min_value());
 }
 
@@ -478,10 +465,8 @@ fn min_max() {
     assert_eq!(0, u63::MIN.value());
     assert_eq!(0x7FFF_FFFF_FFFF_FFFF, u63::MAX.value());
 
-    #[cfg(feature = "128")]
     assert_eq!(0, u127::MIN.value());
 
-    #[cfg(feature = "128")]
     assert_eq!(0x7FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF, u127::MAX.value());
 }
 
@@ -490,11 +475,9 @@ fn bits() {
     assert_eq!(4, u4::BITS);
     assert_eq!(12, u12::BITS);
 
-    #[cfg(feature = "128")]
     assert_eq!(120, u120::BITS);
 
-    #[cfg(feature = "128")]
-    assert_eq!(13, AInt::<u128, 13usize>::BITS);
+    assert_eq!(13, AInt::<u128, typenum::U13>::BITS);
 
     assert_eq!(8, u8::BITS);
     assert_eq!(16, u16::BITS);
@@ -506,35 +489,30 @@ fn mask() {
     assert_eq!(0xFu8, u4::MASK);
     assert_eq!(0x3FFFFu32, u18::MASK);
 
-    #[cfg(feature = "128")]
     assert_eq!(0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, u127::MASK);
 
-    #[cfg(feature = "128")]
     assert_eq!(0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, u127::MASK);
 
-    #[cfg(feature = "128")]
     assert_eq!(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, u128::MAX);
 }
 
 #[test]
 fn min_max_fullwidth() {
-    assert_eq!(u8::MIN, AInt::<u8, 8>::MIN.value());
-    assert_eq!(u8::MAX, AInt::<u8, 8>::MAX.value());
+    assert_eq!(u8::MIN, AInt::<u8, typenum::U8>::MIN.value());
+    assert_eq!(u8::MAX, AInt::<u8, typenum::U8>::MAX.value());
 
-    assert_eq!(u16::MIN, AInt::<u16, 16>::MIN.value());
-    assert_eq!(u16::MAX, AInt::<u16, 16>::MAX.value());
+    assert_eq!(u16::MIN, AInt::<u16, typenum::U16>::MIN.value());
+    assert_eq!(u16::MAX, AInt::<u16, typenum::U16>::MAX.value());
 
-    assert_eq!(u32::MIN, AInt::<u32, 32>::MIN.value());
-    assert_eq!(u32::MAX, AInt::<u32, 32>::MAX.value());
+    assert_eq!(u32::MIN, AInt::<u32, typenum::U32>::MIN.value());
+    assert_eq!(u32::MAX, AInt::<u32, typenum::U32>::MAX.value());
 
-    assert_eq!(u64::MIN, AInt::<u64, 64>::MIN.value());
-    assert_eq!(u64::MAX, AInt::<u64, 64>::MAX.value());
+    assert_eq!(u64::MIN, AInt::<u64, typenum::U64>::MIN.value());
+    assert_eq!(u64::MAX, AInt::<u64, typenum::U64>::MAX.value());
 
-    #[cfg(feature = "128")]
-    assert_eq!(u128::MIN, AInt::<u128, 128>::MIN.value());
+    assert_eq!(u128::MIN, AInt::<u128, typenum::U128>::MIN.value());
 
-    #[cfg(feature = "128")]
-    assert_eq!(u128::MAX, AInt::<u128, 128>::MAX.value());
+    assert_eq!(u128::MAX, AInt::<u128, typenum::U128>::MAX.value());
 }
 
 #[allow(deprecated)]
@@ -546,12 +524,12 @@ fn extract() {
 
     // Use extract with a custom type (5 bits of u32)
     assert_eq!(
-        AInt::<u32, 5>::new(0b11110),
-        AInt::<u32, 5>::extract(0b11110000u32, 3)
+        AInt::<u32, typenum::U5>::new(0b11110),
+        AInt::<u32, typenum::U5>::extract(0b11110000u32, 3)
     );
     assert_eq!(
         u5::new(0b11110),
-        AInt::<u32, 5>::extract(0b11110000u32, 3).into()
+        AInt::<u32, typenum::U5>::extract(0b11110000u32, 3).into()
     );
 }
 
@@ -571,7 +549,6 @@ fn extract_typed() {
         )
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(u5::new(0b01011), u5::extract(0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_u128, 118));
 }
 
@@ -579,11 +556,11 @@ fn extract_typed() {
 fn extract_full_width_typed() {
     assert_eq!(
         0b1010_0011,
-        AInt::<u8, 8>::extract(0b1010_0011_u8, 0).value()
+        AInt::<u8, typenum::U8>::extract(0b1010_0011_u8, 0).value()
     );
     assert_eq!(
         0b1010_0011,
-        AInt::<u8, 8>::extract(0b1111_1111_1010_0011_u16, 0).value()
+        AInt::<u8, typenum::U8>::extract(0b1111_1111_1010_0011_u16, 0).value()
     );
 }
 
@@ -596,7 +573,7 @@ fn extract_not_enough_bits_8() {
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_8_full_width() {
-    let _ = AInt::<u8, 8>::extract(0b11110000u8, 1);
+    let _ = AInt::<u8, typenum::U8>::extract(0b11110000u8, 1);
 }
 
 #[test]
@@ -617,7 +594,6 @@ fn extract_not_enough_bits_64() {
     let _ = u5::extract(0b11110000u8, 60);
 }
 
-#[cfg(feature = "128")]
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_128() {
@@ -625,229 +601,16 @@ fn extract_not_enough_bits_128() {
 }
 
 #[test]
-fn from_same_bit_widths() {
-    assert_eq!(u5::from(AInt::<u8, 5>::new(0b10101)), u5::new(0b10101));
-    assert_eq!(u5::from(AInt::<u16, 5>::new(0b10101)), u5::new(0b10101));
-    assert_eq!(u5::from(AInt::<u32, 5>::new(0b10101)), u5::new(0b10101));
-    assert_eq!(u5::from(AInt::<u64, 5>::new(0b10101)), u5::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u5::from(AInt::<u128, 5>::new(0b10101)), u5::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        AInt::<u8, 8>::from(AInt::<u128, 8>::new(0b1110_0101)),
-        AInt::<u8, 8>::new(0b1110_0101)
-    );
-
-    assert_eq!(
-        AInt::<u16, 6>::from(AInt::<u8, 5>::new(0b10101)),
-        AInt::<u16, 6>::new(0b10101)
-    );
-    assert_eq!(u15::from(AInt::<u16, 15>::new(0b10101)), u15::new(0b10101));
-    assert_eq!(u15::from(AInt::<u32, 15>::new(0b10101)), u15::new(0b10101));
-    assert_eq!(u15::from(AInt::<u64, 15>::new(0b10101)), u15::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u15::from(AInt::<u128, 15>::new(0b10101)), u15::new(0b10101));
-
-    assert_eq!(
-        AInt::<u32, 6>::from(u6::new(0b10101)),
-        AInt::<u32, 6>::new(0b10101)
-    );
-    assert_eq!(
-        AInt::<u32, 14>::from(u14::new(0b10101)),
-        AInt::<u32, 14>::new(0b10101)
-    );
-    assert_eq!(u30::from(AInt::<u32, 30>::new(0b10101)), u30::new(0b10101));
-    assert_eq!(u30::from(AInt::<u64, 30>::new(0b10101)), u30::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u30::from(AInt::<u128, 30>::new(0b10101)), u30::new(0b10101));
-
-    assert_eq!(
-        AInt::<u64, 7>::from(AInt::<u8, 7>::new(0b10101)),
-        AInt::<u64, 7>::new(0b10101)
-    );
-    assert_eq!(
-        AInt::<u64, 12>::from(AInt::<u16, 12>::new(0b10101)),
-        AInt::<u64, 12>::new(0b10101)
-    );
-    assert_eq!(
-        AInt::<u64, 28>::from(AInt::<u32, 28>::new(0b10101)),
-        AInt::<u64, 28>::new(0b10101)
-    );
-    assert_eq!(u60::from(u60::new(0b10101)), u60::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u60::from(AInt::<u128, 60>::new(0b10101)), u60::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        AInt::<u128, 5>::from(AInt::<u8, 5>::new(0b10101)),
-        AInt::<u128, 5>::new(0b10101)
-    );
-    #[cfg(feature = "128")]
-    assert_eq!(
-        AInt::<u128, 12>::from(AInt::<u16, 12>::new(0b10101)),
-        AInt::<u128, 12>::new(0b10101)
-    );
-    #[cfg(feature = "128")]
-    assert_eq!(
-        AInt::<u128, 26>::from(AInt::<u32, 26>::new(0b10101)),
-        AInt::<u128, 26>::new(0b10101)
-    );
-    #[cfg(feature = "128")]
-    assert_eq!(
-        AInt::<u128, 60>::from(AInt::<u64, 60>::new(0b10101)),
-        AInt::<u128, 60>::new(0b10101)
-    );
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        u120::from(AInt::<u128, 120>::new(0b10101)),
-        u120::new(0b10101)
-    );
-}
-
-#[test]
-fn from_smaller_bit_widths() {
-    // The code to get more bits from fewer bits (through From) is the same as the code above
-    // for identical bitwidths. Therefore just do a few point checks to ensure things compile
-
-    // There are compile-breakers for the opposite direction (e.g. tryint to do u5 = From(u17),
-    // but we can't test compile failures here
-
-    // from is not yet supported if the bitcounts are different but the base data types are the same (need
-    // fancier Rust features to support that)
-    assert_eq!(u6::from(AInt::<u16, 5>::new(0b10101)), u6::new(0b10101));
-    assert_eq!(u6::from(AInt::<u32, 5>::new(0b10101)), u6::new(0b10101));
-    assert_eq!(u6::from(AInt::<u64, 5>::new(0b10101)), u6::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u6::from(AInt::<u128, 5>::new(0b10101)), u6::new(0b10101));
-
-    assert_eq!(u15::from(AInt::<u8, 7>::new(0b10101)), u15::new(0b10101));
-    //assert_eq!(u15::from(AInt::<u16, 15>::new(0b10101)), u15::new(0b10101));
-    assert_eq!(u15::from(AInt::<u32, 14>::new(0b10101)), u15::new(0b10101));
-    assert_eq!(u15::from(AInt::<u64, 14>::new(0b10101)), u15::new(0b10101));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u15::from(AInt::<u128, 14>::new(0b10101)), u15::new(0b10101));
-}
-
-#[allow(non_camel_case_types)]
-#[test]
-fn from_native_ints_same_bits() {
-    use std::primitive;
-
-    type u8 = AInt<primitive::u8, 8>;
-    type u16 = AInt<primitive::u16, 16>;
-    type u32 = AInt<primitive::u32, 32>;
-    type u64 = AInt<primitive::u64, 64>;
-
-    #[cfg(feature = "128")]
-    type u128 = AInt<primitive::u128, 128>;
-
-    assert_eq!(u8::from(0x80_u8), u8::new(0x80));
-    assert_eq!(u16::from(0x8000_u16), u16::new(0x8000));
-    assert_eq!(u32::from(0x8000_0000_u32), u32::new(0x8000_0000));
-    assert_eq!(
-        u64::from(0x8000_0000_0000_0000_u64),
-        u64::new(0x8000_0000_0000_0000)
-    );
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        u128::from(0x8000_0000_0000_0000_0000_0000_0000_0000_u128),
-        u128::new(0x8000_0000_0000_0000_0000_0000_0000_0000)
-    );
-}
-
-#[test]
-fn from_native_ints_fewer_bits() {
-    assert_eq!(u9::from(0x80_u8), u9::new(0x80));
-
-    assert_eq!(u17::from(0x80_u8), u17::new(0x80));
-    assert_eq!(u17::from(0x8000_u16), u17::new(0x8000));
-
-    assert_eq!(u33::from(0x80_u8), u33::new(0x80));
-    assert_eq!(u33::from(0x8000_u16), u33::new(0x8000));
-    assert_eq!(u33::from(0x8000_0000_u32), u33::new(0x8000_0000));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u65::from(0x80_u8), u65::new(0x80));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u65::from(0x8000_u16), u65::new(0x8000));
-
-    #[cfg(feature = "128")]
-    assert_eq!(u65::from(0x8000_0000_u32), u65::new(0x8000_0000));
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        u65::from(0x8000_0000_0000_0000_u64),
-        u65::new(0x8000_0000_0000_0000)
-    );
-}
-
-#[allow(non_camel_case_types)]
-#[test]
-fn into_native_ints_same_bits() {
-    assert_eq!(u8::from(AInt::<u8, 8>::new(0x80)), 0x80);
-    assert_eq!(u16::from(AInt::<u16, 16>::new(0x8000)), 0x8000);
-    assert_eq!(u32::from(AInt::<u32, 32>::new(0x8000_0000)), 0x8000_0000);
-    assert_eq!(
-        u64::from(AInt::<u64, 64>::new(0x8000_0000_0000_0000)),
-        0x8000_0000_0000_0000
-    );
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        u128::from(AInt::<u128, 128>::new(
-            0x8000_0000_0000_0000_0000_0000_0000_0000
-        )),
-        0x8000_0000_0000_0000_0000_0000_0000_0000
-    );
-}
-
-#[test]
-fn into_native_ints_fewer_bits() {
-    assert_eq!(u8::from(u7::new(0x40)), 0x40);
-    assert_eq!(u16::from(u15::new(0x4000)), 0x4000);
-    assert_eq!(u32::from(u31::new(0x4000_0000)), 0x4000_0000);
-    assert_eq!(
-        u64::from(u63::new(0x4000_0000_0000_0000)),
-        0x4000_0000_0000_0000
-    );
-
-    #[cfg(feature = "128")]
-    assert_eq!(
-        u128::from(u127::new(0x4000_0000_0000_0000_0000_0000_0000_0000)),
-        0x4000_0000_0000_0000_0000_0000_0000_0000
-    );
-}
-
-#[test]
-fn from_into_bool() {
-    assert_eq!(u1::from(true), u1::new(1));
-    assert_eq!(u1::from(false), u1::new(0));
-    assert_eq!(bool::from(u1::new(1)), true);
-    assert_eq!(bool::from(u1::new(0)), false);
-}
-
-#[test]
 fn widen() {
     // As From() can't be used while keeping the base-data-type, there's widen
 
-    assert_eq!(u5::new(0b11011).widen::<6>(), u6::new(0b11011));
-    assert_eq!(u5::new(0b11011).widen::<8>(), AInt::<u8, 8>::new(0b11011));
-    assert_eq!(u10::new(0b11011).widen::<11>(), u11::new(0b11011));
-    assert_eq!(u20::new(0b11011).widen::<24>(), u24::new(0b11011));
-    assert_eq!(u60::new(0b11011).widen::<61>(), u61::new(0b11011));
+    assert_eq!(u5::new(0b11011).widen::<typenum::U6>(), u6::new(0b11011));
+    assert_eq!(u5::new(0b11011).widen::<typenum::U8>(), AInt::<u8, typenum::U8>::new(0b11011));
+    assert_eq!(u10::new(0b11011).widen::<typenum::U11>(), u11::new(0b11011));
+    assert_eq!(u20::new(0b11011).widen::<typenum::U24>(), u24::new(0b11011));
+    assert_eq!(u60::new(0b11011).widen::<typenum::U61>(), u61::new(0b11011));
 
-    #[cfg(feature = "128")]
-    assert_eq!(u80::new(0b11011).widen::<127>().value(), 0b11011);
+    assert_eq!(u80::new(0b11011).widen::<typenum::U127>().value(), 0b11011);
 }
 
 #[test]
@@ -858,7 +621,6 @@ fn to_string() {
     assert_eq!("Value: 5", format!("Value: {}", u17::new(5).to_string()));
     assert_eq!("Value: 5", format!("Value: {}", u38::new(5).to_string()));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 60", format!("Value: {}", u65::new(60).to_string()));
 }
 
@@ -870,7 +632,6 @@ fn display() {
     assert_eq!("Value: 5", format!("Value: {}", u17::new(5)));
     assert_eq!("Value: 5", format!("Value: {}", u38::new(5)));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 60", format!("Value: {}", u65::new(60)));
 }
 
@@ -882,7 +643,6 @@ fn debug() {
     assert_eq!("Value: 5", format!("Value: {:?}", u17::new(5)));
     assert_eq!("Value: 5", format!("Value: {:?}", u38::new(5)));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 60", format!("Value: {:?}", u65::new(60)));
 }
 
@@ -895,7 +655,6 @@ fn lower_hex() {
     assert_eq!("Value: a", format!("Value: {:x}", u38::new(10)));
     assert_eq!("Value: 3c", format!("Value: {:x}", 60));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 3c", format!("Value: {:x}", u65::new(60)));
 }
 
@@ -908,7 +667,6 @@ fn upper_hex() {
     assert_eq!("Value: A", format!("Value: {:X}", u38::new(10)));
     assert_eq!("Value: 3C", format!("Value: {:X}", 60));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 3C", format!("Value: {:X}", u65::new(60)));
 }
 
@@ -921,7 +679,6 @@ fn lower_hex_fancy() {
     assert_eq!("Value: 0xa", format!("Value: {:#x}", u38::new(10)));
     assert_eq!("Value: 0x3c", format!("Value: {:#x}", 60));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 0x3c", format!("Value: {:#x}", u65::new(60)));
 }
 
@@ -934,7 +691,6 @@ fn upper_hex_fancy() {
     assert_eq!("Value: 0xA", format!("Value: {:#X}", u38::new(10)));
     assert_eq!("Value: 0x3C", format!("Value: {:#X}", 60));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 0x3C", format!("Value: {:#X}", u65::new(60)));
 }
 
@@ -947,7 +703,6 @@ fn debug_lower_hex_fancy() {
     assert_eq!("Value: 0xa", format!("Value: {:#x?}", u38::new(10)));
     assert_eq!("Value: 0x3c", format!("Value: {:#x?}", 60));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 0x3c", format!("Value: {:#x?}", u65::new(60)));
 }
 
@@ -960,7 +715,6 @@ fn debug_upper_hex_fancy() {
     assert_eq!("Value: 0xA", format!("Value: {:#X?}", u38::new(10)));
     assert_eq!("Value: 0x3C", format!("Value: {:#X?}", 60));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 0x3C", format!("Value: {:#X?}", u65::new(60)));
 }
 
@@ -973,7 +727,6 @@ fn octal() {
     assert_eq!("Value: 12", format!("Value: {:o}", u38::new(10)));
     assert_eq!("Value: 74", format!("Value: {:o}", 0o74));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 74", format!("Value: {:o}", u65::new(0o74)));
 }
 
@@ -986,7 +739,6 @@ fn binary() {
     assert_eq!("Value: 1010", format!("Value: {:b}", u38::new(10)));
     assert_eq!("Value: 111100", format!("Value: {:b}", 0b111100));
 
-    #[cfg(feature = "128")]
     assert_eq!("Value: 111100", format!("Value: {:b}", u65::new(0b111100)));
 }
 
@@ -1004,14 +756,13 @@ fn hash() {
 fn swap_bytes() {
     assert_eq!(u24::new(0x12_34_56).swap_bytes(), u24::new(0x56_34_12));
     assert_eq!(
-        AInt::<u64, 24>::new(0x12_34_56).swap_bytes(),
-        AInt::<u64, 24>::new(0x56_34_12)
+        AInt::<u64, typenum::U24>::new(0x12_34_56).swap_bytes(),
+        AInt::<u64, typenum::U24>::new(0x56_34_12)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 24>::new(0x12_34_56).swap_bytes(),
-        AInt::<u128, 24>::new(0x56_34_12)
+        AInt::<u128, typenum::U24>::new(0x12_34_56).swap_bytes(),
+        AInt::<u128, typenum::U24>::new(0x56_34_12)
     );
 
     assert_eq!(
@@ -1019,10 +770,9 @@ fn swap_bytes() {
         u40::new(0x9A_78_56_34_12)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 40>::new(0x12_34_56_78_9A).swap_bytes(),
-        AInt::<u128, 40>::new(0x9A_78_56_34_12)
+        AInt::<u128, typenum::U40>::new(0x12_34_56_78_9A).swap_bytes(),
+        AInt::<u128, typenum::U40>::new(0x9A_78_56_34_12)
     );
 
     assert_eq!(
@@ -1030,10 +780,9 @@ fn swap_bytes() {
         u48::new(0xBC_9A_78_56_34_12)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 48>::new(0x12_34_56_78_9A_BC).swap_bytes(),
-        AInt::<u128, 48>::new(0xBC_9A_78_56_34_12)
+        AInt::<u128, typenum::U48>::new(0x12_34_56_78_9A_BC).swap_bytes(),
+        AInt::<u128, typenum::U48>::new(0xBC_9A_78_56_34_12)
     );
 
     assert_eq!(
@@ -1041,11 +790,10 @@ fn swap_bytes() {
         u56::new(0xDE_BC_9A_78_56_34_12)
     );
 
-    #[cfg(feature = "128")]
     {
         assert_eq!(
-            AInt::<u128, 56>::new(0x12_34_56_78_9A_BC_DE).swap_bytes(),
-            AInt::<u128, 56>::new(0xDE_BC_9A_78_56_34_12)
+            AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE).swap_bytes(),
+            AInt::<u128, typenum::U56>::new(0xDE_BC_9A_78_56_34_12)
         );
 
         assert_eq!(
@@ -1089,13 +837,12 @@ fn swap_bytes() {
 fn to_le_and_be_bytes() {
     assert_eq!(u24::new(0x12_34_56).to_le_bytes(), [0x56, 0x34, 0x12]);
     assert_eq!(
-        AInt::<u64, 24>::new(0x12_34_56).to_le_bytes(),
+        AInt::<u64, typenum::U24>::new(0x12_34_56).to_le_bytes(),
         [0x56, 0x34, 0x12]
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 24>::new(0x12_34_56).to_le_bytes(),
+        AInt::<u128, typenum::U24>::new(0x12_34_56).to_le_bytes(),
         [0x56, 0x34, 0x12]
     );
 
@@ -1110,14 +857,13 @@ fn to_le_and_be_bytes() {
 
     */
 
-    #[cfg(feature = "128")]
     {
         assert_eq!(
-            AInt::<u64, 24>::new(0x12_34_56).to_be_bytes(),
+            AInt::<u64, typenum::U24>::new(0x12_34_56).to_be_bytes(),
             [0x12, 0x34, 0x56]
         );
         assert_eq!(
-            AInt::<u128, 24>::new(0x12_34_56).to_be_bytes(),
+            AInt::<u128, typenum::U24>::new(0x12_34_56).to_be_bytes(),
             [0x12, 0x34, 0x56]
         );
 
@@ -1126,7 +872,7 @@ fn to_le_and_be_bytes() {
             [0x9A, 0x78, 0x56, 0x34, 0x12]
         );
         assert_eq!(
-            AInt::<u128, 40>::new(0x12_34_56_78_9A).to_le_bytes(),
+            AInt::<u128, typenum::U40>::new(0x12_34_56_78_9A).to_le_bytes(),
             [0x9A, 0x78, 0x56, 0x34, 0x12]
         );
 
@@ -1135,7 +881,7 @@ fn to_le_and_be_bytes() {
             [0x12, 0x34, 0x56, 0x78, 0x9A]
         );
         assert_eq!(
-            AInt::<u128, 40>::new(0x12_34_56_78_9A).to_be_bytes(),
+            AInt::<u128, typenum::U40>::new(0x12_34_56_78_9A).to_be_bytes(),
             [0x12, 0x34, 0x56, 0x78, 0x9A]
         );
 
@@ -1144,7 +890,7 @@ fn to_le_and_be_bytes() {
             [0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]
         );
         assert_eq!(
-            AInt::<u128, 48>::new(0x12_34_56_78_9A_BC).to_le_bytes(),
+            AInt::<u128, typenum::U48>::new(0x12_34_56_78_9A_BC).to_le_bytes(),
             [0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]
         );
 
@@ -1153,7 +899,7 @@ fn to_le_and_be_bytes() {
             [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]
         );
         assert_eq!(
-            AInt::<u128, 48>::new(0x12_34_56_78_9A_BC).to_be_bytes(),
+            AInt::<u128, typenum::U48>::new(0x12_34_56_78_9A_BC).to_be_bytes(),
             [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]
         );
 
@@ -1162,7 +908,7 @@ fn to_le_and_be_bytes() {
             [0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]
         );
         assert_eq!(
-            AInt::<u128, 56>::new(0x12_34_56_78_9A_BC_DE).to_le_bytes(),
+            AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE).to_le_bytes(),
             [0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]
         );
 
@@ -1171,7 +917,7 @@ fn to_le_and_be_bytes() {
             [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE]
         );
         assert_eq!(
-            AInt::<u128, 56>::new(0x12_34_56_78_9A_BC_DE).to_be_bytes(),
+            AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE).to_be_bytes(),
             [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE]
         );
 
@@ -1257,26 +1003,24 @@ fn to_le_and_be_bytes() {
 fn from_le_and_be_bytes() {
     assert_eq!(u24::from_le_bytes([0x56, 0x34, 0x12]), u24::new(0x12_34_56));
     assert_eq!(
-        AInt::<u64, 24>::from_le_bytes([0x56, 0x34, 0x12]),
-        AInt::<u64, 24>::new(0x12_34_56)
+        AInt::<u64, typenum::U24>::from_le_bytes([0x56, 0x34, 0x12]),
+        AInt::<u64, typenum::U24>::new(0x12_34_56)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 24>::from_le_bytes([0x56, 0x34, 0x12]),
-        AInt::<u128, 24>::new(0x12_34_56)
+        AInt::<u128, typenum::U24>::from_le_bytes([0x56, 0x34, 0x12]),
+        AInt::<u128, typenum::U24>::new(0x12_34_56)
     );
 
     assert_eq!(u24::from_be_bytes([0x12, 0x34, 0x56]), u24::new(0x12_34_56));
     assert_eq!(
-        AInt::<u64, 24>::from_be_bytes([0x12, 0x34, 0x56]),
-        AInt::<u64, 24>::new(0x12_34_56)
+        AInt::<u64, typenum::U24>::from_be_bytes([0x12, 0x34, 0x56]),
+        AInt::<u64, typenum::U24>::new(0x12_34_56)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 24>::from_be_bytes([0x12, 0x34, 0x56]),
-        AInt::<u128, 24>::new(0x12_34_56)
+        AInt::<u128, typenum::U24>::from_be_bytes([0x12, 0x34, 0x56]),
+        AInt::<u128, typenum::U24>::new(0x12_34_56)
     );
 
     assert_eq!(
@@ -1284,10 +1028,9 @@ fn from_le_and_be_bytes() {
         u40::new(0x12_34_56_78_9A)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 40>::from_le_bytes([0x9A, 0x78, 0x56, 0x34, 0x12]),
-        AInt::<u128, 40>::new(0x12_34_56_78_9A)
+        AInt::<u128, typenum::U40>::from_le_bytes([0x9A, 0x78, 0x56, 0x34, 0x12]),
+        AInt::<u128, typenum::U40>::new(0x12_34_56_78_9A)
     );
 
     assert_eq!(
@@ -1295,10 +1038,9 @@ fn from_le_and_be_bytes() {
         u40::new(0x12_34_56_78_9A)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 40>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A]),
-        AInt::<u128, 40>::new(0x12_34_56_78_9A)
+        AInt::<u128, typenum::U40>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A]),
+        AInt::<u128, typenum::U40>::new(0x12_34_56_78_9A)
     );
 
     assert_eq!(
@@ -1306,10 +1048,9 @@ fn from_le_and_be_bytes() {
         u48::new(0x12_34_56_78_9A_BC)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 48>::from_le_bytes([0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
-        AInt::<u128, 48>::new(0x12_34_56_78_9A_BC)
+        AInt::<u128, typenum::U48>::from_le_bytes([0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
+        AInt::<u128, typenum::U48>::new(0x12_34_56_78_9A_BC)
     );
 
     assert_eq!(
@@ -1317,10 +1058,9 @@ fn from_le_and_be_bytes() {
         u48::new(0x12_34_56_78_9A_BC)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 48>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]),
-        AInt::<u128, 48>::new(0x12_34_56_78_9A_BC)
+        AInt::<u128, typenum::U48>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]),
+        AInt::<u128, typenum::U48>::new(0x12_34_56_78_9A_BC)
     );
 
     assert_eq!(
@@ -1328,10 +1068,9 @@ fn from_le_and_be_bytes() {
         u56::new(0x12_34_56_78_9A_BC_DE)
     );
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 56>::from_le_bytes([0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
-        AInt::<u128, 56>::new(0x12_34_56_78_9A_BC_DE)
+        AInt::<u128, typenum::U56>::from_le_bytes([0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
+        AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE)
     );
 
     assert_eq!(
@@ -1339,11 +1078,10 @@ fn from_le_and_be_bytes() {
         u56::new(0x12_34_56_78_9A_BC_DE)
     );
 
-    #[cfg(feature = "128")]
     {
         assert_eq!(
-            AInt::<u128, 56>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE]),
-            AInt::<u128, 56>::new(0x12_34_56_78_9A_BC_DE)
+            AInt::<u128, typenum::U56>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE]),
+            AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE)
         );
 
         assert_eq!(
@@ -1551,8 +1289,8 @@ fn saturating_add() {
     assert_eq!(u7::new(120).saturating_add(u7::new(10)), u7::new(127));
     assert_eq!(u7::new(127).saturating_add(u7::new(127)), u7::new(127));
     assert_eq!(
-        AInt::<u8, 8>::new(250).saturating_add(AInt::<u8, 8>::new(10)),
-        AInt::<u8, 8>::new(255)
+        AInt::<u8, typenum::U8>::new(250).saturating_add(AInt::<u8, typenum::U8>::new(10)),
+        AInt::<u8, typenum::U8>::new(255)
     );
 }
 
@@ -1620,7 +1358,7 @@ fn checked_add() {
     assert_eq!(u7::new(120).checked_add(u7::new(10)), None);
     assert_eq!(u7::new(127).checked_add(u7::new(127)), None);
     assert_eq!(
-        AInt::<u8, 8>::new(250).checked_add(AInt::<u8, 8>::new(10)),
+        AInt::<u8, typenum::U8>::new(250).checked_add(AInt::<u8, typenum::U8>::new(10)),
         None
     );
 }
@@ -1726,12 +1464,12 @@ fn overflowing_add() {
         (u7::new(126), true)
     );
     assert_eq!(
-        AInt::<u8, 8>::new(250).overflowing_add(AInt::<u8, 8>::new(5)),
-        (AInt::<u8, 8>::new(255), false)
+        AInt::<u8, typenum::U8>::new(250).overflowing_add(AInt::<u8, typenum::U8>::new(5)),
+        (AInt::<u8, typenum::U8>::new(255), false)
     );
     assert_eq!(
-        AInt::<u8, 8>::new(250).overflowing_add(AInt::<u8, 8>::new(10)),
-        (AInt::<u8, 8>::new(4), true)
+        AInt::<u8, typenum::U8>::new(250).overflowing_add(AInt::<u8, typenum::U8>::new(10)),
+        (AInt::<u8, typenum::U8>::new(4), true)
     );
 }
 
@@ -1869,10 +1607,9 @@ fn reverse_bits() {
     const B: u5 = A.reverse_bits();
     assert_eq!(B, u5::new(0b10111));
 
-    #[cfg(feature = "128")]
     assert_eq!(
-        AInt::<u128, 6>::new(0b101011),
-        AInt::<u128, 6>::new(0b110101).reverse_bits()
+        AInt::<u128, typenum::U6>::new(0b101011),
+        AInt::<u128, typenum::U6>::new(0b110101).reverse_bits()
     );
 
     assert_eq!(u1::new(1).reverse_bits().value(), 1);
@@ -1897,10 +1634,8 @@ fn count_ones_and_zeros() {
     assert_eq!(5, u5::new(0b11111).count_ones());
     assert_eq!(0, u5::new(0b11111).count_zeros());
 
-    #[cfg(feature = "128")]
     assert_eq!(3, u127::new(0b111).count_ones());
 
-    #[cfg(feature = "128")]
     assert_eq!(124, u127::new(0b111).count_zeros());
 }
 
@@ -2054,7 +1789,6 @@ auto_test!(u61, 61, 0_u64, 2305843009213693951_u64);
 auto_test!(u62, 62, 0_u64, 4611686018427387903_u64);
 auto_test!(u63, 63, 0_u64, 9223372036854775807_u64);
 
-#[cfg(feature = "128")]
 mod test_u128 {
     use crate::*;
 
@@ -2113,14 +1847,54 @@ mod test_u128 {
     auto_test!(u117, 117, 0_u128, 166153499473114484112975882535043071_u128);
     auto_test!(u118, 118, 0_u128, 332306998946228968225951765070086143_u128);
     auto_test!(u119, 119, 0_u128, 664613997892457936451903530140172287_u128);
-    auto_test!(u120, 120, 0_u128, 1329227995784915872903807060280344575_u128);
-    auto_test!(u121, 121, 0_u128, 2658455991569831745807614120560689151_u128);
-    auto_test!(u122, 122, 0_u128, 5316911983139663491615228241121378303_u128);
-    auto_test!(u123, 123, 0_u128, 10633823966279326983230456482242756607_u128);
-    auto_test!(u124, 124, 0_u128, 21267647932558653966460912964485513215_u128);
-    auto_test!(u125, 125, 0_u128, 42535295865117307932921825928971026431_u128);
-    auto_test!(u126, 126, 0_u128, 85070591730234615865843651857942052863_u128);
-    auto_test!(u127, 127, 0_u128, 170141183460469231731687303715884105727_u128);
+    auto_test!(
+        u120,
+        120,
+        0_u128,
+        1329227995784915872903807060280344575_u128
+    );
+    auto_test!(
+        u121,
+        121,
+        0_u128,
+        2658455991569831745807614120560689151_u128
+    );
+    auto_test!(
+        u122,
+        122,
+        0_u128,
+        5316911983139663491615228241121378303_u128
+    );
+    auto_test!(
+        u123,
+        123,
+        0_u128,
+        10633823966279326983230456482242756607_u128
+    );
+    auto_test!(
+        u124,
+        124,
+        0_u128,
+        21267647932558653966460912964485513215_u128
+    );
+    auto_test!(
+        u125,
+        125,
+        0_u128,
+        42535295865117307932921825928971026431_u128
+    );
+    auto_test!(
+        u126,
+        126,
+        0_u128,
+        85070591730234615865843651857942052863_u128
+    );
+    auto_test!(
+        u127,
+        127,
+        0_u128,
+        170141183460469231731687303715884105727_u128
+    );
 }
 
 auto_test!(i1, 1, -1_i8, 0_i8);
@@ -2184,306 +1958,381 @@ auto_test!(i61, 61, -1152921504606846976_i64, 1152921504606846975_i64);
 auto_test!(i62, 62, -2305843009213693952_i64, 2305843009213693951_i64);
 auto_test!(i63, 63, -4611686018427387904_i64, 4611686018427387903_i64);
 
-#[cfg(feature = "128")]
-mod test_i128 {
-    use crate::*;
-
-    auto_test!(i65, 65, -18446744073709551616_i128, 18446744073709551615_i128);
-    auto_test!(i66, 66, -36893488147419103232_i128, 36893488147419103231_i128);
-    auto_test!(i67, 67, -73786976294838206464_i128, 73786976294838206463_i128);
-    auto_test!(i68, 68, -147573952589676412928_i128, 147573952589676412927_i128);
-    auto_test!(i69, 69, -295147905179352825856_i128, 295147905179352825855_i128);
-    auto_test!(i70, 70, -590295810358705651712_i128, 590295810358705651711_i128);
-    auto_test!(i71, 71, -1180591620717411303424_i128, 1180591620717411303423_i128);
-    auto_test!(i72, 72, -2361183241434822606848_i128, 2361183241434822606847_i128);
-    auto_test!(i73, 73, -4722366482869645213696_i128, 4722366482869645213695_i128);
-    auto_test!(i74, 74, -9444732965739290427392_i128, 9444732965739290427391_i128);
-    auto_test!(i75, 75, -18889465931478580854784_i128, 18889465931478580854783_i128);
-    auto_test!(i76, 76, -37778931862957161709568_i128, 37778931862957161709567_i128);
-    auto_test!(i77, 77, -75557863725914323419136_i128, 75557863725914323419135_i128);
-    auto_test!(i78, 78, -151115727451828646838272_i128, 151115727451828646838271_i128);
-    auto_test!(i79, 79, -302231454903657293676544_i128, 302231454903657293676543_i128);
-    auto_test!(i80, 80, -604462909807314587353088_i128, 604462909807314587353087_i128);
-    auto_test!(
-        i81,
-        81,
-        -1208925819614629174706176_i128,
-        1208925819614629174706175_i128
-    );
-    auto_test!(
-        i82,
-        82,
-        -2417851639229258349412352_i128,
-        2417851639229258349412351_i128
-    );
-    auto_test!(
-        i83,
-        83,
-        -4835703278458516698824704_i128,
-        4835703278458516698824703_i128
-    );
-    auto_test!(
-        i84,
-        84,
-        -9671406556917033397649408_i128,
-        9671406556917033397649407_i128
-    );
-    auto_test!(
-        i85,
-        85,
-        -19342813113834066795298816_i128,
-        19342813113834066795298815_i128
-    );
-    auto_test!(
-        i86,
-        86,
-        -38685626227668133590597632_i128,
-        38685626227668133590597631_i128
-    );
-    auto_test!(
-        i87,
-        87,
-        -77371252455336267181195264_i128,
-        77371252455336267181195263_i128
-    );
-    auto_test!(
-        i88,
-        88,
-        -154742504910672534362390528_i128,
-        154742504910672534362390527_i128
-    );
-    auto_test!(
-        i89,
-        89,
-        -309485009821345068724781056_i128,
-        309485009821345068724781055_i128
-    );
-    auto_test!(
-        i90,
-        90,
-        -618970019642690137449562112_i128,
-        618970019642690137449562111_i128
-    );
-    auto_test!(
-        i91,
-        91,
-        -1237940039285380274899124224_i128,
-        1237940039285380274899124223_i128
-    );
-    auto_test!(
-        i92,
-        92,
-        -2475880078570760549798248448_i128,
-        2475880078570760549798248447_i128
-    );
-    auto_test!(
-        i93,
-        93,
-        -4951760157141521099596496896_i128,
-        4951760157141521099596496895_i128
-    );
-    auto_test!(
-        i94,
-        94,
-        -9903520314283042199192993792_i128,
-        9903520314283042199192993791_i128
-    );
-    auto_test!(
-        i95,
-        95,
-        -19807040628566084398385987584_i128,
-        19807040628566084398385987583_i128
-    );
-    auto_test!(
-        i96,
-        96,
-        -39614081257132168796771975168_i128,
-        39614081257132168796771975167_i128
-    );
-    auto_test!(
-        i97,
-        97,
-        -79228162514264337593543950336_i128,
-        79228162514264337593543950335_i128
-    );
-    auto_test!(
-        i98,
-        98,
-        -158456325028528675187087900672_i128,
-        158456325028528675187087900671_i128
-    );
-    auto_test!(
-        i99,
-        99,
-        -316912650057057350374175801344_i128,
-        316912650057057350374175801343_i128
-    );
-    auto_test!(
-        i100,
-        100,
-        -633825300114114700748351602688_i128,
-        633825300114114700748351602687_i128
-    );
-    auto_test!(
-        i101,
-        101,
-        -1267650600228229401496703205376_i128,
-        1267650600228229401496703205375_i128
-    );
-    auto_test!(
-        i102,
-        102,
-        -2535301200456458802993406410752_i128,
-        2535301200456458802993406410751_i128
-    );
-    auto_test!(
-        i103,
-        103,
-        -5070602400912917605986812821504_i128,
-        5070602400912917605986812821503_i128
-    );
-    auto_test!(
-        i104,
-        104,
-        -10141204801825835211973625643008_i128,
-        10141204801825835211973625643007_i128
-    );
-    auto_test!(
-        i105,
-        105,
-        -20282409603651670423947251286016_i128,
-        20282409603651670423947251286015_i128
-    );
-    auto_test!(
-        i106,
-        106,
-        -40564819207303340847894502572032_i128,
-        40564819207303340847894502572031_i128
-    );
-    auto_test!(
-        i107,
-        107,
-        -81129638414606681695789005144064_i128,
-        81129638414606681695789005144063_i128
-    );
-    auto_test!(
-        i108,
-        108,
-        -162259276829213363391578010288128_i128,
-        162259276829213363391578010288127_i128
-    );
-    auto_test!(
-        i109,
-        109,
-        -324518553658426726783156020576256_i128,
-        324518553658426726783156020576255_i128
-    );
-    auto_test!(
-        i110,
-        110,
-        -649037107316853453566312041152512_i128,
-        649037107316853453566312041152511_i128
-    );
-    auto_test!(
-        i111,
-        111,
-        -1298074214633706907132624082305024_i128,
-        1298074214633706907132624082305023_i128
-    );
-    auto_test!(
-        i112,
-        112,
-        -2596148429267413814265248164610048_i128,
-        2596148429267413814265248164610047_i128
-    );
-    auto_test!(
-        i113,
-        113,
-        -5192296858534827628530496329220096_i128,
-        5192296858534827628530496329220095_i128
-    );
-    auto_test!(
-        i114,
-        114,
-        -10384593717069655257060992658440192_i128,
-        10384593717069655257060992658440191_i128
-    );
-    auto_test!(
-        i115,
-        115,
-        -20769187434139310514121985316880384_i128,
-        20769187434139310514121985316880383_i128
-    );
-    auto_test!(
-        i116,
-        116,
-        -41538374868278621028243970633760768_i128,
-        41538374868278621028243970633760767_i128
-    );
-    auto_test!(
-        i117,
-        117,
-        -83076749736557242056487941267521536_i128,
-        83076749736557242056487941267521535_i128
-    );
-    auto_test!(
-        i118,
-        118,
-        -166153499473114484112975882535043072_i128,
-        166153499473114484112975882535043071_i128
-    );
-    auto_test!(
-        i119,
-        119,
-        -332306998946228968225951765070086144_i128,
-        332306998946228968225951765070086143_i128
-    );
-    auto_test!(
-        i120,
-        120,
-        -664613997892457936451903530140172288_i128,
-        664613997892457936451903530140172287_i128
-    );
-    auto_test!(
-        i121,
-        121,
-        -1329227995784915872903807060280344576_i128,
-        1329227995784915872903807060280344575_i128
-    );
-    auto_test!(
-        i122,
-        122,
-        -2658455991569831745807614120560689152_i128,
-        2658455991569831745807614120560689151_i128
-    );
-    auto_test!(
-        i123,
-        123,
-        -5316911983139663491615228241121378304_i128,
-        5316911983139663491615228241121378303_i128
-    );
-    auto_test!(
-        i124,
-        124,
-        -10633823966279326983230456482242756608_i128,
-        10633823966279326983230456482242756607_i128
-    );
-    auto_test!(
-        i125,
-        125,
-        -21267647932558653966460912964485513216_i128,
-        21267647932558653966460912964485513215_i128
-    );
-    auto_test!(
-        i126,
-        126,
-        -42535295865117307932921825928971026432_i128,
-        42535295865117307932921825928971026431_i128
-    );
-    auto_test!(
-        i127,
-        127,
-        -85070591730234615865843651857942052864_i128,
-        85070591730234615865843651857942052863_i128
-    );
-}
+auto_test!(
+    i65,
+    65,
+    -18446744073709551616_i128,
+    18446744073709551615_i128
+);
+auto_test!(
+    i66,
+    66,
+    -36893488147419103232_i128,
+    36893488147419103231_i128
+);
+auto_test!(
+    i67,
+    67,
+    -73786976294838206464_i128,
+    73786976294838206463_i128
+);
+auto_test!(
+    i68,
+    68,
+    -147573952589676412928_i128,
+    147573952589676412927_i128
+);
+auto_test!(
+    i69,
+    69,
+    -295147905179352825856_i128,
+    295147905179352825855_i128
+);
+auto_test!(
+    i70,
+    70,
+    -590295810358705651712_i128,
+    590295810358705651711_i128
+);
+auto_test!(
+    i71,
+    71,
+    -1180591620717411303424_i128,
+    1180591620717411303423_i128
+);
+auto_test!(
+    i72,
+    72,
+    -2361183241434822606848_i128,
+    2361183241434822606847_i128
+);
+auto_test!(
+    i73,
+    73,
+    -4722366482869645213696_i128,
+    4722366482869645213695_i128
+);
+auto_test!(
+    i74,
+    74,
+    -9444732965739290427392_i128,
+    9444732965739290427391_i128
+);
+auto_test!(
+    i75,
+    75,
+    -18889465931478580854784_i128,
+    18889465931478580854783_i128
+);
+auto_test!(
+    i76,
+    76,
+    -37778931862957161709568_i128,
+    37778931862957161709567_i128
+);
+auto_test!(
+    i77,
+    77,
+    -75557863725914323419136_i128,
+    75557863725914323419135_i128
+);
+auto_test!(
+    i78,
+    78,
+    -151115727451828646838272_i128,
+    151115727451828646838271_i128
+);
+auto_test!(
+    i79,
+    79,
+    -302231454903657293676544_i128,
+    302231454903657293676543_i128
+);
+auto_test!(
+    i80,
+    80,
+    -604462909807314587353088_i128,
+    604462909807314587353087_i128
+);
+auto_test!(
+    i81,
+    81,
+    -1208925819614629174706176_i128,
+    1208925819614629174706175_i128
+);
+auto_test!(
+    i82,
+    82,
+    -2417851639229258349412352_i128,
+    2417851639229258349412351_i128
+);
+auto_test!(
+    i83,
+    83,
+    -4835703278458516698824704_i128,
+    4835703278458516698824703_i128
+);
+auto_test!(
+    i84,
+    84,
+    -9671406556917033397649408_i128,
+    9671406556917033397649407_i128
+);
+auto_test!(
+    i85,
+    85,
+    -19342813113834066795298816_i128,
+    19342813113834066795298815_i128
+);
+auto_test!(
+    i86,
+    86,
+    -38685626227668133590597632_i128,
+    38685626227668133590597631_i128
+);
+auto_test!(
+    i87,
+    87,
+    -77371252455336267181195264_i128,
+    77371252455336267181195263_i128
+);
+auto_test!(
+    i88,
+    88,
+    -154742504910672534362390528_i128,
+    154742504910672534362390527_i128
+);
+auto_test!(
+    i89,
+    89,
+    -309485009821345068724781056_i128,
+    309485009821345068724781055_i128
+);
+auto_test!(
+    i90,
+    90,
+    -618970019642690137449562112_i128,
+    618970019642690137449562111_i128
+);
+auto_test!(
+    i91,
+    91,
+    -1237940039285380274899124224_i128,
+    1237940039285380274899124223_i128
+);
+auto_test!(
+    i92,
+    92,
+    -2475880078570760549798248448_i128,
+    2475880078570760549798248447_i128
+);
+auto_test!(
+    i93,
+    93,
+    -4951760157141521099596496896_i128,
+    4951760157141521099596496895_i128
+);
+auto_test!(
+    i94,
+    94,
+    -9903520314283042199192993792_i128,
+    9903520314283042199192993791_i128
+);
+auto_test!(
+    i95,
+    95,
+    -19807040628566084398385987584_i128,
+    19807040628566084398385987583_i128
+);
+auto_test!(
+    i96,
+    96,
+    -39614081257132168796771975168_i128,
+    39614081257132168796771975167_i128
+);
+auto_test!(
+    i97,
+    97,
+    -79228162514264337593543950336_i128,
+    79228162514264337593543950335_i128
+);
+auto_test!(
+    i98,
+    98,
+    -158456325028528675187087900672_i128,
+    158456325028528675187087900671_i128
+);
+auto_test!(
+    i99,
+    99,
+    -316912650057057350374175801344_i128,
+    316912650057057350374175801343_i128
+);
+auto_test!(
+    i100,
+    100,
+    -633825300114114700748351602688_i128,
+    633825300114114700748351602687_i128
+);
+auto_test!(
+    i101,
+    101,
+    -1267650600228229401496703205376_i128,
+    1267650600228229401496703205375_i128
+);
+auto_test!(
+    i102,
+    102,
+    -2535301200456458802993406410752_i128,
+    2535301200456458802993406410751_i128
+);
+auto_test!(
+    i103,
+    103,
+    -5070602400912917605986812821504_i128,
+    5070602400912917605986812821503_i128
+);
+auto_test!(
+    i104,
+    104,
+    -10141204801825835211973625643008_i128,
+    10141204801825835211973625643007_i128
+);
+auto_test!(
+    i105,
+    105,
+    -20282409603651670423947251286016_i128,
+    20282409603651670423947251286015_i128
+);
+auto_test!(
+    i106,
+    106,
+    -40564819207303340847894502572032_i128,
+    40564819207303340847894502572031_i128
+);
+auto_test!(
+    i107,
+    107,
+    -81129638414606681695789005144064_i128,
+    81129638414606681695789005144063_i128
+);
+auto_test!(
+    i108,
+    108,
+    -162259276829213363391578010288128_i128,
+    162259276829213363391578010288127_i128
+);
+auto_test!(
+    i109,
+    109,
+    -324518553658426726783156020576256_i128,
+    324518553658426726783156020576255_i128
+);
+auto_test!(
+    i110,
+    110,
+    -649037107316853453566312041152512_i128,
+    649037107316853453566312041152511_i128
+);
+auto_test!(
+    i111,
+    111,
+    -1298074214633706907132624082305024_i128,
+    1298074214633706907132624082305023_i128
+);
+auto_test!(
+    i112,
+    112,
+    -2596148429267413814265248164610048_i128,
+    2596148429267413814265248164610047_i128
+);
+auto_test!(
+    i113,
+    113,
+    -5192296858534827628530496329220096_i128,
+    5192296858534827628530496329220095_i128
+);
+auto_test!(
+    i114,
+    114,
+    -10384593717069655257060992658440192_i128,
+    10384593717069655257060992658440191_i128
+);
+auto_test!(
+    i115,
+    115,
+    -20769187434139310514121985316880384_i128,
+    20769187434139310514121985316880383_i128
+);
+auto_test!(
+    i116,
+    116,
+    -41538374868278621028243970633760768_i128,
+    41538374868278621028243970633760767_i128
+);
+auto_test!(
+    i117,
+    117,
+    -83076749736557242056487941267521536_i128,
+    83076749736557242056487941267521535_i128
+);
+auto_test!(
+    i118,
+    118,
+    -166153499473114484112975882535043072_i128,
+    166153499473114484112975882535043071_i128
+);
+auto_test!(
+    i119,
+    119,
+    -332306998946228968225951765070086144_i128,
+    332306998946228968225951765070086143_i128
+);
+auto_test!(
+    i120,
+    120,
+    -664613997892457936451903530140172288_i128,
+    664613997892457936451903530140172287_i128
+);
+auto_test!(
+    i121,
+    121,
+    -1329227995784915872903807060280344576_i128,
+    1329227995784915872903807060280344575_i128
+);
+auto_test!(
+    i122,
+    122,
+    -2658455991569831745807614120560689152_i128,
+    2658455991569831745807614120560689151_i128
+);
+auto_test!(
+    i123,
+    123,
+    -5316911983139663491615228241121378304_i128,
+    5316911983139663491615228241121378303_i128
+);
+auto_test!(
+    i124,
+    124,
+    -10633823966279326983230456482242756608_i128,
+    10633823966279326983230456482242756607_i128
+);
+auto_test!(
+    i125,
+    125,
+    -21267647932558653966460912964485513216_i128,
+    21267647932558653966460912964485513215_i128
+);
+auto_test!(
+    i126,
+    126,
+    -42535295865117307932921825928971026432_i128,
+    42535295865117307932921825928971026431_i128
+);
+auto_test!(
+    i127,
+    127,
+    -85070591730234615865843651857942052864_i128,
+    85070591730234615865843651857942052863_i128
+);

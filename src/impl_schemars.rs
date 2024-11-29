@@ -2,15 +2,15 @@ use schemars::JsonSchema;
 
 use crate::Number;
 
-use super::{AInt, UnsignedNumberType};
+use super::{AInt, NumberType};
 
 impl<T, const BITS: usize> JsonSchema for AInt<T, BITS>
 where
     Self: Number<UnderlyingType = T>,
-    T: NumberType
+    T: NumberType,
 {
     fn schema_name() -> String {
-        ["uint", &BITS.to_string()].concat()
+        [if Self::SIGNED { "int" } else { "uint" }, &BITS.to_string()].concat()
     }
 
     fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {

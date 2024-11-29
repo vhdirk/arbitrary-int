@@ -1,13 +1,11 @@
 use core::iter::Step;
 
-use crate::Number;
-
-use super::{AInt, UnsignedNumberType};
+use crate::{AInt, Number, NumberType};
 
 impl<T, const BITS: usize> Step for AInt<T, BITS>
 where
     Self: Number<UnderlyingType = T>,
-    T: UnsignedNumberType + Step,
+    T: NumberType + Step,
 {
     #[inline]
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
@@ -36,7 +34,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::uint::aliases::*;
+    use crate::aliases::*;
 
     #[test]
     fn range_agrees_with_underlying() {
@@ -52,7 +50,7 @@ mod tests {
         fn compare_range<T, const BITS: usize>(arb_start: AInt<T, BITS>, arb_end: AInt<T, BITS>)
         where
             AInt<T, BITS>: Step + Number<UnderlyingType = T>,
-            T: UnsignedNumberType + Copy + Step,
+            T: NumberType + Copy + Step,
         {
             let arbint_range = (arb_start..=arb_end).map(AInt::value);
             let underlying_range = arb_start.value()..=arb_end.value();

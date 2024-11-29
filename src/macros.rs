@@ -25,8 +25,8 @@ macro_rules! native_macro {
     };
 }
 
-native_macro!(u8, u16, u32, u64);
-native_macro!(i8, i16, i32, i64);
+native_macro!(u8, u16, u32, u64, u128);
+native_macro!(i8, i16, i32, i64, i128);
 
 
 macro_rules! lit_macro {
@@ -81,21 +81,9 @@ seq!(BITS in 33..64 {
     )*
 });
 
-
-
-#[cfg(feature = "128")]
-native_macro!(u128);
-
-#[cfg(feature = "128")]
-native_macro!(i128);
-
-#[cfg(feature = "128")]
 seq!(BITS in 65..128 {
     #(
-        #[cfg(feature = "128")]
         lit_macro!(u~BITS);
-
-        #[cfg(feature = "128")]
         lit_macro!(i~BITS);
     )*
 });

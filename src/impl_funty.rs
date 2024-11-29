@@ -14,14 +14,18 @@ use core::{
 use seq_macro::seq;
 
 use crate::{AInt, Number};
+use crate::traits::{BitsSpec, AIntContainer};
 
 macro_rules! aint_impl_funty {
     ($($type:ident),+) => {
         $(
-            impl<const BITS: usize> funty::Fundamental for AInt<$type, BITS>
+            impl<Bits> funty::Fundamental for AInt<$type, Bits>
             where
-                Self: Number<UnderlyingType = $type>
-                    + PartialEq
+                $type: AIntContainer + Debug,
+                Bits: BitsSpec,
+                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+                Self: Number<Container = $type, Bits=Bits>
+                    + PartialEq<Self>
                     + BitXor
                     + BitXorAssign
                     + Display
@@ -115,10 +119,13 @@ macro_rules! aint_impl_funty {
             }
 
 
-            impl<const BITS: usize> funty::Integral for AInt<$type, BITS>
+            impl<Bits> funty::Integral for AInt<$type, Bits>
             where
-                Self: funty::Numeric
-                    + Number<UnderlyingType = $type>
+                $type: AIntContainer + Debug,
+                Bits: BitsSpec,
+                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+                Self: Number<Container = $type, Bits=Bits>
+                    + funty::Numeric
                     + Hash
                     + Eq
                     + Ord
@@ -276,7 +283,7 @@ macro_rules! aint_impl_funty {
 
                 const MAX: Self = <Self>::MAX;
 
-                const BITS: u32 = BITS as u32;
+                const BITS: u32 = <Bits as typenum::Unsigned>::U32;
 
                 #[inline]
                 fn min_value() -> Self {
@@ -546,23 +553,19 @@ macro_rules! aint_impl_funty {
     };
 }
 
-aint_impl_funty!(u8, u16, u32, u64);
+aint_impl_funty!(u8, u16, u32, u64, u128);
+aint_impl_funty!(i8, i16, i32, i64, i128);
 
 
-
-// Yes I know, this is pretty horrible. Two things at play here:
-//  1. We can't use const generics to figure out how many bytes we need.
-//     The only solution I can currently think of is to implement this for
-//     every.single.bit.size.
-//  2. I have not found a way to have macros do these calculations either. For
-//     now, I'm typing this all out. I just how (1) sees a solution somehow
 macro_rules! bytes_operation_impl {
-    ($type:ident, $bytes: expr, $bits:expr, $min_bits:expr, $max_bits:expr ) => {
+    ($type:ident, $bytes: expr, $bytes_type: ident) => {
 
-        impl funty::Numeric for AInt<$type, $bits>
+        impl<Bits> funty::Numeric for AInt<$type, Bits>
         where
-            Self: Number<UnderlyingType = $type>,
-            Self: funty::Fundamental
+            Bits: BitsSpec,
+            <$type as Number>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+            Self: Number<Container = $type, Bits=Bits, Bytes=typenum::$bytes_type>
+                + funty::Fundamental
                 + Product<Self>
                 + for<'a> Product<&'a Self>
                 + Sum<Self>
@@ -601,7 +604,7 @@ macro_rules! bytes_operation_impl {
             }
 
             #[inline]
-            fn to_ne_bytes(self) -> [u8; Self::BYTES] {
+            fn to_ne_bytes(self) -> Self::Bytes {
                 <Self>::to_ne_bytes(self)
             }
 
@@ -620,58 +623,36 @@ macro_rules! bytes_operation_impl {
 
         }
     };
-
-    ($type:ident, $bytes: expr, $min_bits:expr, $max_bits:expr) => {
-        seq!(BITS in $min_bits..=$max_bits {
-            #(
-                bytes_operation_impl!($type, $bytes, BITS, $min_bits, $max_bits);
-            )*
-        });
-    };
 }
 
-bytes_operation_impl!(u8, 1, 1, 8);
 
-bytes_operation_impl!(u16, 1, 1, 8);
-bytes_operation_impl!(u16, 2, 9, 16);
+bytes_operation_impl!(u8, 1, U1);
+bytes_operation_impl!(i8, 1, U1);
 
-bytes_operation_impl!(u32, 1, 1, 8);
-bytes_operation_impl!(u32, 2, 9, 16);
-bytes_operation_impl!(u32, 3, 17, 24);
-bytes_operation_impl!(u32, 4, 25, 32);
+seq!(BYTES in 1..=2 {
+    #(
+        bytes_operation_impl!(u16, BYTES, U~BYTES);
+        bytes_operation_impl!(i16, BYTES, U~BYTES);
+    )*
+});
 
-bytes_operation_impl!(u64, 1, 1, 8);
-bytes_operation_impl!(u64, 2, 9, 16);
-bytes_operation_impl!(u64, 3, 17, 24);
-bytes_operation_impl!(u64, 4, 25, 32);
-bytes_operation_impl!(u64, 5, 33, 40);
-bytes_operation_impl!(u64, 6, 41, 48);
-bytes_operation_impl!(u64, 7, 49, 56);
-bytes_operation_impl!(u64, 8, 57, 64);
+seq!(BYTES in 1..=4 {
+    #(
+        bytes_operation_impl!(u32, BYTES, U~BYTES);
+        bytes_operation_impl!(i32, BYTES, U~BYTES);
+    )*
+});
 
-#[cfg(feature="128")]
-mod funty_128 {
-    use super::*;
+seq!(BYTES in 1..=8 {
+    #(
+        bytes_operation_impl!(u64, BYTES, U~BYTES);
+        bytes_operation_impl!(i64, BYTES, U~BYTES);
+    )*
+});
 
-    aint_impl_funty!(u128);
-
-    bytes_operation_impl!(u128, 1, 1, 8);
-    bytes_operation_impl!(u128, 2, 9, 16);
-    bytes_operation_impl!(u128, 3, 17, 24);
-    bytes_operation_impl!(u128, 4, 25, 32);
-    bytes_operation_impl!(u128, 5, 33, 40);
-    bytes_operation_impl!(u128, 6, 41, 48);
-    bytes_operation_impl!(u128, 7, 49, 56);
-    bytes_operation_impl!(u128, 8, 57, 64);
-    bytes_operation_impl!(u128, 9, 65, 72);
-    bytes_operation_impl!(u128, 10, 73, 80);
-    bytes_operation_impl!(u128, 11, 81, 88);
-    bytes_operation_impl!(u128, 12, 89, 96);
-    bytes_operation_impl!(u128, 13, 97, 104);
-    bytes_operation_impl!(u128, 14, 105, 112);
-    bytes_operation_impl!(u128, 15, 113, 120);
-    bytes_operation_impl!(u128, 16, 121, 128);
-}
-
-#[cfg(feature="128")]
-pub use funty_128::*;
+seq!(BYTES in 1..=16 {
+    #(
+        bytes_operation_impl!(u128, BYTES, U~BYTES);
+        bytes_operation_impl!(i128, BYTES, U~BYTES);
+    )*
+});

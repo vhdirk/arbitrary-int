@@ -4,20 +4,23 @@ use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::str::FromStr;
 
+use core::num::ParseIntError;
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign,
-    Mul, MulAssign, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
+    Mul, MulAssign, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign, Neg,
 };
-use std::num::ParseIntError;
 
-use crate::{Number, AIntErrorKind, ParseAIntError};
+use crate::traits::BitsSpec;
+use crate::{AIntErrorKind, Number, ParseAIntError};
 
-use crate::{AInt, UnsignedNumberType};
+use crate::{AInt, AIntContainer};
 
-impl<T, const BITS: usize> Hash for AInt<T, BITS>
+impl<T, Bits> Hash for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Hash,
+    T: AIntContainer + Hash,
+    Self: Number<Container = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -25,10 +28,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> Add for AInt<T, BITS>
+impl<T, Bits> Add for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Add<Output = T> + Not<Output = T> + BitAnd<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + Add<Output = T> + Not<Output = T> + BitAnd<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
@@ -39,21 +44,21 @@ where
         if (sum & !Self::MASK) != Self::ZERO.value {
             panic!("attempt to add with overflow");
         }
-        Self {
-            value: sum & Self::MASK,
-        }
+        Self::new_wrapping(sum)
     }
 }
 
-impl<T, const BITS: usize> AddAssign for AInt<T, BITS>
+impl<T, Bits> AddAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType
+    Self: Number<Container = T>,
+    T: AIntContainer
         + Add<Output = T>
         + Not<Output = T>
         + BitAnd<Output = T>
         + AddAssign
         + BitAndAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn add_assign(&mut self, rhs: Self) {
         self.value += rhs.value;
@@ -65,25 +70,27 @@ where
     }
 }
 
-impl<T, const BITS: usize> Sub for AInt<T, BITS>
+impl<T, Bits> Sub for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitAnd<Output = T> + Sub<Output=T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitAnd<Output = T> + Sub<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         // No need for extra overflow checking as the regular minus operator already handles it for us
-        Self {
-            value: (self.value - rhs.value) & Self::MASK,
-        }
+        Self::new_wrapping(self.value - rhs.value)
     }
 }
 
-impl<T, const BITS: usize> SubAssign for AInt<T, BITS>
+impl<T, Bits> SubAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + SubAssign + BitAndAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + SubAssign + BitAndAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn sub_assign(&mut self, rhs: Self) {
         // No need for extra overflow checking as the regular minus operator already handles it for us
@@ -92,10 +99,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> Mul for AInt<T, BITS>
+impl<T, Bits> Mul for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Mul<Output = T> + BitAnd<Output = T> + Not<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + Mul<Output = T> + BitAnd<Output = T> + Not<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
@@ -108,16 +117,16 @@ where
         if (product & !Self::MASK) != Self::ZERO.value {
             panic!("attempt to multiply with overflow");
         }
-        Self {
-            value: product & Self::MASK,
-        }
+        Self::new_wrapping(product)
     }
 }
 
-impl<T, const BITS: usize> MulAssign for AInt<T, BITS>
+impl<T, Bits> MulAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + MulAssign + BitAndAssign + BitAnd<Output = T> + Not<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + MulAssign + BitAndAssign + BitAnd<Output = T> + Not<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn mul_assign(&mut self, rhs: Self) {
         self.value *= rhs.value;
@@ -129,62 +138,69 @@ where
     }
 }
 
-impl<T, const BITS: usize> Div for AInt<T, BITS>
+impl<T, Bits> Div for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Div<Output = T>
+    Self: Number<Container = T>,
+    T: AIntContainer + Div<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         // Integer division can only make the value smaller. And as the result is same type as
         // Self, there's no need to range-check or mask
-        Self {
-            value: self.value / rhs.value,
-        }
+
+        unsafe { Self::new_unchecked(self.value / rhs.value) }
     }
 }
 
-impl<T, const BITS: usize> DivAssign for AInt<T, BITS>
+impl<T, Bits> DivAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + DivAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + DivAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn div_assign(&mut self, rhs: Self) {
         self.value /= rhs.value;
     }
 }
 
-impl<T, const BITS: usize> Rem for AInt<T, BITS>
+impl<T, Bits> Rem for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Rem<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + Rem<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
         // Integer division can only make the value smaller. And as the result is same type as
         // Self, there's no need to range-check or mask
-        Self {
-            value: self.value % rhs.value,
-        }
+        unsafe { Self::new_unchecked(self.value % rhs.value) }
     }
 }
 
-impl<T, const BITS: usize> RemAssign for AInt<T, BITS>
+impl<T, Bits> RemAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + RemAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + RemAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn rem_assign(&mut self, rhs: Self) {
         self.value %= rhs.value
     }
 }
 
-impl<T, const BITS: usize> Sum for AInt<T, BITS>
+impl<T, Bits> Sum for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T> + Add<Output = Self>,
-    T: UnsignedNumberType,
+    Self: Number<Container = T> + Add<Output = Self>,
+    T: AIntContainer,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn sum<I>(iter: I) -> Self
     where
@@ -194,10 +210,12 @@ where
     }
 }
 
-impl<'a, T, const BITS: usize> Sum<&'a AInt<T, BITS>> for AInt<T, BITS>
+impl<'a, T, Bits> Sum<&'a AInt<T, Bits>> for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T> + Add<Output = Self>,
-    T: UnsignedNumberType,
+    Self: Number<Container = T> + Add<Output = Self>,
+    T: AIntContainer,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn sum<I>(iter: I) -> Self
     where
@@ -207,10 +225,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> Product for AInt<T, BITS>
+impl<T, Bits> Product for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T> + Mul<Output = Self>,
-    T: UnsignedNumberType,
+    Self: Number<Container = T> + Mul<Output = Self>,
+    T: AIntContainer,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn product<I>(iter: I) -> Self
     where
@@ -220,10 +240,12 @@ where
     }
 }
 
-impl<'a, T, const BITS: usize> Product<&'a AInt<T, BITS>> for AInt<T, BITS>
+impl<'a, T, Bits> Product<&'a AInt<T, Bits>> for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T> + Mul<Output = Self>,
-    T: UnsignedNumberType,
+    Self: Number<Container = T> + Mul<Output = Self>,
+    T: AIntContainer,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn product<I>(iter: I) -> Self
     where
@@ -233,97 +255,105 @@ where
     }
 }
 
-impl<T, const BITS: usize> BitAnd for AInt<T, BITS>
+impl<T, Bits> BitAnd for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitAnd<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitAnd<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value & rhs.value,
-        }
+        unsafe { Self::new_unchecked(self.value & rhs.value) }
     }
 }
 
-impl<T, const BITS: usize> BitAndAssign for AInt<T, BITS>
+impl<T, Bits> BitAndAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitAndAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitAndAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn bitand_assign(&mut self, rhs: Self) {
         self.value &= rhs.value;
     }
 }
 
-impl<T, const BITS: usize> BitOr for AInt<T, BITS>
+impl<T, Bits> BitOr for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitOr<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitOr<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value | rhs.value,
-        }
+        unsafe { Self::new_unchecked(self.value | rhs.value) }
     }
 }
 
-impl<T, const BITS: usize> BitOrAssign for AInt<T, BITS>
+impl<T, Bits> BitOrAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitOrAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitOrAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn bitor_assign(&mut self, rhs: Self) {
         self.value |= rhs.value;
     }
 }
 
-impl<T, const BITS: usize> BitXor for AInt<T, BITS>
+impl<T, Bits> BitXor for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitXor<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitXor<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value ^ rhs.value,
-        }
+        unsafe { Self::new_unchecked(self.value ^ rhs.value) }
     }
 }
 
-impl<T, const BITS: usize> BitXorAssign for AInt<T, BITS>
+impl<T, Bits> BitXorAssign for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitXorAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitXorAssign,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn bitxor_assign(&mut self, rhs: Self) {
         self.value ^= rhs.value;
     }
 }
 
-impl<T, const BITS: usize> Not for AInt<T, BITS>
+impl<T, Bits> Not for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + BitXor<Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + BitXor<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        Self {
-            value: self.value ^ Self::MASK,
-        }
+        unsafe { Self::new_unchecked(self.value ^ Self::MASK) }
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> Shl<TSHIFTBITS> for AInt<T, BITS>
+impl<T, TSHIFTBITS, Bits> Shl<TSHIFTBITS> for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Shl<TSHIFTBITS, Output = T> + BitAnd<Output=T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + Shl<TSHIFTBITS, Output = T> + BitAnd<Output = T>,
     TSHIFTBITS: TryInto<usize> + Copy,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Output = Self;
 
@@ -331,27 +361,27 @@ where
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
         #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
+        if rhs.try_into().unwrap_or(usize::MAX) >= (Bits::U32 as usize) {
             panic!("attempt to shift left with overflow")
         }
 
-        Self {
-            value: (self.value << rhs) & Self::MASK,
-        }
+        Self::new_wrapping(self.value << rhs)
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> ShlAssign<TSHIFTBITS> for AInt<T, BITS>
+impl<T, TSHIFTBITS, Bits> ShlAssign<TSHIFTBITS> for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + ShlAssign<TSHIFTBITS> + BitAndAssign,
+    Self: Number<Container = T>,
+    T: AIntContainer + ShlAssign<TSHIFTBITS> + BitAndAssign,
     TSHIFTBITS: TryInto<usize> + Copy,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn shl_assign(&mut self, rhs: TSHIFTBITS) {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
         #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
+        if rhs.try_into().unwrap_or(usize::MAX) >= (Bits::U32 as usize) {
             panic!("attempt to shift left with overflow")
         }
         self.value <<= rhs;
@@ -359,48 +389,53 @@ where
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> Shr<TSHIFTBITS> for AInt<T, BITS>
+impl<T, TSHIFTBITS, Bits> Shr<TSHIFTBITS> for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Shr<TSHIFTBITS, Output = T>,
+    Self: Number<Container = T>,
+    T: AIntContainer + Shr<TSHIFTBITS, Output = T>,
     TSHIFTBITS: TryInto<usize> + Copy,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
-    type Output = AInt<T, BITS>;
+    type Output = AInt<T, Bits>;
 
     fn shr(self, rhs: TSHIFTBITS) -> Self::Output {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
         #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
+        if rhs.try_into().unwrap_or(usize::MAX) >= (Bits::U32 as usize) {
             panic!("attempt to shift left with overflow")
         }
-        Self {
-            value: self.value >> rhs,
-        }
+
+        unsafe { Self::new_unchecked(self.value >> rhs) }
     }
 }
 
-impl<T, TSHIFTBITS, const BITS: usize> ShrAssign<TSHIFTBITS> for AInt<T, BITS>
+impl<T, TSHIFTBITS, Bits> ShrAssign<TSHIFTBITS> for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + ShrAssign<TSHIFTBITS>,
+    Self: Number<Container = T>,
+    T: AIntContainer + ShrAssign<TSHIFTBITS>,
     TSHIFTBITS: TryInto<usize> + Copy,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     fn shr_assign(&mut self, rhs: TSHIFTBITS) {
         // With debug assertions, the << and >> operators throw an exception if the shift amount
         // is larger than the number of bits (in which case the result would always be 0)
         #[cfg(debug_assertions)]
-        if rhs.try_into().unwrap_or(usize::MAX) >= BITS {
+        if rhs.try_into().unwrap_or(usize::MAX) >= (Bits::U32 as usize) {
             panic!("attempt to shift left with overflow")
         }
         self.value >>= rhs;
     }
 }
 
-impl<T, const BITS: usize> Display for AInt<T, BITS>
+impl<T, Bits> Display for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType,
+    Self: Number<Container = T>,
+    T: AIntContainer,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -408,10 +443,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> LowerHex for AInt<T, BITS>
+impl<T, Bits> LowerHex for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + LowerHex,
+    Self: Number<Container = T>,
+    T: AIntContainer + LowerHex,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -419,10 +456,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> UpperHex for AInt<T, BITS>
+impl<T, Bits> UpperHex for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + UpperHex,
+    Self: Number<Container = T>,
+    T: AIntContainer + UpperHex,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -430,10 +469,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> Octal for AInt<T, BITS>
+impl<T, Bits> Octal for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Octal,
+    Self: Number<Container = T>,
+    T: AIntContainer + Octal,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -441,10 +482,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> Binary for AInt<T, BITS>
+impl<T, Bits> Binary for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + Binary,
+    Self: Number<Container = T>,
+    T: AIntContainer + Binary,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -452,10 +495,12 @@ where
     }
 }
 
-impl<T, const BITS: usize> FromStr for AInt<T, BITS>
+impl<T, Bits> FromStr for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType=T>,
-    T: UnsignedNumberType + FromStr<Err = ParseIntError>,
+    Self: Number<Container = T>,
+    T: AIntContainer + FromStr<Err = ParseIntError>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
 {
     type Err = ParseAIntError;
 
@@ -466,11 +511,28 @@ where
             Err(err) => return Err(ParseAIntError::from_native(err)),
         };
 
-        match value {
-            v if v < Self::MIN.value => Err(ParseAIntError{ kind: AIntErrorKind::NegOverflow }),
-            v if v > Self::MAX.value => Err(ParseAIntError{ kind: AIntErrorKind::PosOverflow }),
-            v => Ok(Self { value: v })
+        match Self::try_new(value) {
+            Ok(v) => Ok(v),
+            Err(err) => Err(ParseAIntError {
+                kind: err.kind().clone(),
+            }),
         }
     }
 }
+
+impl<T, Bits> Neg for AInt<T, Bits>
+where
+    Self: Number<Container = T>,
+    T: AIntContainer + Neg<Output = T>,
+    Bits: BitsSpec,
+    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+{
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::new(self.value.neg())
+    }
+}
+
+
 
