@@ -1,7 +1,7 @@
 
 use crate::traits::BitsSpec;
 use crate::util::{Assert, CompileTimeAssert, NotSame, NotSame2};
-use crate::{AInt, AIntContainer, Number, TryNewError};
+use crate::{AInt, AIntContainer, Number, TryNewError, AIntErrorKind};
 
 // Conversions
 
@@ -36,17 +36,16 @@ aint_impl_from_bool!(u8, u16, u32, u64, u128);
 
 
 
-
 // Implement From for any type thas has the same amount or more bits available
 macro_rules! aint_impl_from_aint {
-    ($into:ty, [$($from:ty),+]) => {
+    ($from:ty, [$($into:ty),+]) => {
         $(
             impl<Bits, FromBits> From<AInt<$from, FromBits>> for AInt<$into, Bits>
             where
-                Bits: BitsSpec,
+                FromBits: BitsSpec,
                 <$from as AIntContainer>::Bits: typenum::IsGreaterOrEqual<FromBits, Output = typenum::True>,
+                Bits: BitsSpec + typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
                 <$into as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
-                FromBits: BitsSpec + typenum::IsLessOrEqual<Bits, Output = typenum::True>,
             {
                 #[inline]
                 fn from(item: AInt<$from, FromBits>) -> Self {
@@ -59,6 +58,8 @@ macro_rules! aint_impl_from_aint {
     };
 }
 
+// Pity: we can;t use from/into for AInt with the same container type.
+// Conflicts with the From<T> for T blanket impl
 aint_impl_from_aint!(u8, [u16, u32, u64, u128]);
 aint_impl_from_aint!(u16, [u8, u32, u64, u128]);
 aint_impl_from_aint!(u32, [u8, u16, u64, u128]);
@@ -73,15 +74,15 @@ aint_impl_from_aint!(i128, [i8, i16, i32, i64]);
 
 
 // Implement From for unsigned into signed if the signed type has at least 1 bit more room
-macro_rules! aint_impl_from_unsigned_aint {
-    ($into:ty, [$($from:ty),+]) => {
+macro_rules! aint_impl_from_unsigned {
+    ($from:ty, [$($into:ty),+]) => {
         $(
             impl<Bits, FromBits> From<AInt<$from, FromBits>> for AInt<$into, Bits>
             where
-                Bits: BitsSpec,
+                FromBits: BitsSpec,
                 <$from as AIntContainer>::Bits: typenum::IsGreaterOrEqual<FromBits, Output = typenum::True>,
+                Bits: BitsSpec + typenum::IsGreater<Bits, Output = typenum::True>,
                 <$into as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
-                FromBits: BitsSpec + typenum::IsLess<Bits, Output = typenum::True>,
             {
                 #[inline]
                 fn from(item: AInt<$from, FromBits>) -> Self {
@@ -90,20 +91,33 @@ macro_rules! aint_impl_from_unsigned_aint {
                     }
                 }
             }
+
+            impl<Bits> From<$from> for AInt<$into, Bits>
+            where
+                Bits: BitsSpec + typenum::IsGreater<<$from as Number>::Bits, Output = typenum::True>,
+                <$into as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+            {
+                #[inline]
+                fn from(item: $from) -> Self {
+                    unsafe {
+                        Self::new_unchecked(item as $into)
+                    }
+                }
+            }
         )+
     };
 }
 
-aint_impl_from_unsigned_aint!(i8, [u16, u32, u64, u128]);
-aint_impl_from_unsigned_aint!(i16, [u8, u32, u64, u128]);
-aint_impl_from_unsigned_aint!(i32, [u8, u16, u64, u128]);
-aint_impl_from_unsigned_aint!(i64, [u8, u16, u32, u128]);
-aint_impl_from_unsigned_aint!(i128, [u8, u16, u32, u64]);
+aint_impl_from_unsigned!(u8, [i16, i32, i64, i128]);
+aint_impl_from_unsigned!(u16, [i8, i32, i64, i128]);
+aint_impl_from_unsigned!(u32, [i8, i16, i64, i128]);
+aint_impl_from_unsigned!(u64, [i8, i16, i32, i128]);
+aint_impl_from_unsigned!(u128, [i8, i16, i32, i64]);
 
 
 // Implement From for any type thas has the same amount or more bits available
 macro_rules! aint_impl_from_native {
-    ($into:ty, [$($from:ty),+]) => {
+    ($from:ty, [$($into:ty),+]) => {
         $(
             impl<Bits> From<$from> for AInt<$into, Bits>
             where
@@ -136,6 +150,7 @@ macro_rules! aint_impl_from_native {
     };
 }
 
+
 aint_impl_from_native!(u8, [u8, u16, u32, u64, u128]);
 aint_impl_from_native!(u16, [u8, u16, u32, u64, u128]);
 aint_impl_from_native!(u32, [u8, u16, u32, u64, u128]);
@@ -148,68 +163,61 @@ aint_impl_from_native!(i32, [i8, i16, i32, i64, i128]);
 aint_impl_from_native!(i64, [i8, i16, i32, i64, i128]);
 aint_impl_from_native!(i128, [i8, i16, i32, i64, i128]);
 
-// macro_rules! from_native_impl {
-//     ($into:ty, [$($from:ty),+]) => {
-//         $(
-//             impl<Bits> From<$from> for AInt<$into, Bits> {
-//                 #[inline]
-//                 fn from(from: $from) -> Self {
-//                     let _ = CompileTimeAssert::<{<$from>::BITS as usize}, BITS>::LESSER_OR_EQUAL;
-//                     Self { value: from as $into }
-//                 }
-//             }
-
-//             impl<Bits> From<AInt<$from, Bits>> for $into {
-//                 #[inline]
-//                 fn from(from: AInt<$from, BITS>) -> Self {
-//                     let _ = CompileTimeAssert::<BITS, {<$into>::BITS as usize}>::LESSER_OR_EQUAL;
-//                     from.value as $into
-//                 }
-//             }
-//         )+
-//     };
-// }
-
-// from_native_impl!(u8, [u8]);
-// from_native_impl!(u16, [u8, u16]);
-// from_native_impl!(u32, [u8, u16, u32]);
-// from_native_impl!(u64, [u8, u16, u32, u64]);
-// from_native_impl!(u128, [u8, u16, u32, u64, u128]);
-
-// from_native_impl!(i8, [i8]);
-// from_native_impl!(i16, [i8, i16]);
-// from_native_impl!(i32, [i8, i16, i32]);
-// from_native_impl!(i64, [i8, i16, i32, i64]);
-// from_native_impl!(i128, [i8, i16, i32, i64, i128]);
 
 
-// macro_rules! try_from_native_impl {
-//     ($into:ty, [$($from:ty),+]) => {
-//         $(
-//             impl<const BITS: usize> TryFrom<$from> for AInt<$into, BITS> {
-//                 type Error = TryNewError;
+// Implement From for unsigned into signed if the signed type has at least 1 bit more room
+macro_rules! aint_impl_try_from_signed {
+    ($from:ty, [$($into:ty),+]) => {
+        $(
+            impl<Bits, FromBits> TryFrom<AInt<$from, FromBits>> for AInt<$into, Bits>
+            where
+                FromBits: BitsSpec,
+                <$from as AIntContainer>::Bits: typenum::IsGreaterOrEqual<FromBits, Output = typenum::True>,
+                Bits: BitsSpec + typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+                <$into as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+            {
+                type Error = TryNewError;
 
-//                 #[inline]
-//                 fn try_from(from: $from) -> Result<Self, Self::Error> {
-//                     Self::try_new(from as $into)
-//                 }
-//             }
-//         )+
-//     };
-// }
+                #[inline]
+                fn try_from(item: AInt<$from, FromBits>) -> Result<Self, Self::Error> {
+                    if item.value() >= 0 {
+                        Ok(unsafe {
+                            Self::new_unchecked(item.value as $into)
+                        })
+                    } else {
+                        Err(TryNewError{kind: AIntErrorKind::NegOverflow})
+                    }
 
-// try_from_native_impl!(u8, [i16, i32, i64, i128]);
-// try_from_native_impl!(u16, [u32, u64, u128, i8, i16, i32, i64, i128]);
-// try_from_native_impl!(u32, [u64, u128, i8, i16, i32, i64, i128]);
-// try_from_native_impl!(u64, [u128, i8, i16, i32, i64, i128]);
-// try_from_native_impl!(u128, [i8, i16, i32, i64, i128]);
+                }
+            }
 
-// try_from_native_impl!(i8, [u8, u16, u32, u64, u128, i16, i32, i64, i128]);
-// try_from_native_impl!(i16, [u8, u16, u32, u64, u128, i32, i64, i128]);
-// try_from_native_impl!(i32, [u8, u16, u32, u64, u128, i64, i128]);
-// try_from_native_impl!(i64, [u8, u16, u32, u64, u128, i128]);
-// try_from_native_impl!(i128, [u8, u16, u32, u64, u128]);
+            impl<Bits> TryFrom<$from> for AInt<$into, Bits>
+            where
+                Bits: BitsSpec + typenum::IsGreaterOrEqual<<$from as Number>::Bits, Output = typenum::True>,
+                <$into as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+            {
+                type Error = TryNewError;
 
+                #[inline]
+                fn try_from(item: $from) -> Result<Self, Self::Error> {
+                    if item >= 0 {
+                        Ok(unsafe {
+                            Self::new_unchecked(item as $into)
+                        })
+                    } else {
+                        Err(TryNewError{kind: AIntErrorKind::NegOverflow})
+                    }
+                }
+            }
+        )+
+    };
+}
+
+aint_impl_try_from_signed!(i8, [u16, u32, u64, u128]);
+aint_impl_try_from_signed!(i16, [u8, u32, u64, u128]);
+aint_impl_try_from_signed!(i32, [u8, u16, u64, u128]);
+aint_impl_try_from_signed!(i64, [u8, u16, u32, u128]);
+aint_impl_try_from_signed!(i128, [u8, u16, u32, u64]);
 
 
 #[cfg(test)]

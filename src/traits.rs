@@ -17,7 +17,7 @@ impl<T> BitsSpec for T where
 
 
 pub trait BytesSpec:
-    typenum::Unsigned + typenum::IsGreaterOrEqual<typenum::U1> + typenum::IsLessOrEqual<typenum::U8>
+    typenum::Unsigned + typenum::IsGreaterOrEqual<typenum::U1> + typenum::IsLessOrEqual<typenum::U8> + PartialEq<Self> + PartialOrd<Self>
 {
 }
 
@@ -25,6 +25,7 @@ impl<T> BytesSpec for T where
     T: typenum::Unsigned
         + typenum::IsGreaterOrEqual<typenum::U1>
         + typenum::IsLessOrEqual<typenum::U8>
+        + PartialEq<T> + PartialOrd<T>
 {
 }
 

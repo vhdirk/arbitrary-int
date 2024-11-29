@@ -21,8 +21,8 @@ macro_rules! aint_impl_funty {
         $(
             impl<Bits> funty::Fundamental for AInt<$type, Bits>
             where
-                $type: AIntContainer + Debug,
-                Bits: BitsSpec,
+                $type: AIntContainer + Debug +,
+                Bits: BitsSpec + PartialEq<Bits> + PartialOrd<Bits>,
                 <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
                 Self: Number<Container = $type, Bits=Bits>
                     + PartialEq<Self>
