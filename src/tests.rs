@@ -518,86 +518,86 @@ fn min_max_fullwidth() {
 #[allow(deprecated)]
 #[test]
 fn extract() {
-    assert_eq!(u5::new(0b10000), u5::extract(0b11110000_u8, 0));
-    assert_eq!(u5::new(0b11100), u5::extract(0b11110000_u8, 2));
-    assert_eq!(u5::new(0b11110), u5::extract(0b11110000_u8, 3));
+    assert_eq!(u5::new(0b10000), u5::extract_from(0b11110000_u8, 0));
+    assert_eq!(u5::new(0b11100), u5::extract_from(0b11110000_u8, 2));
+    assert_eq!(u5::new(0b11110), u5::extract_from(0b11110000_u8, 3));
 
     // Use extract with a custom type (5 bits of u32)
     assert_eq!(
         AInt::<u32, typenum::U5>::new(0b11110),
-        AInt::<u32, typenum::U5>::extract(0b11110000u32, 3)
+        AInt::<u32, typenum::U5>::extract_from(0b11110000u32, 3)
     );
     assert_eq!(
         u5::new(0b11110),
-        AInt::<u32, typenum::U5>::extract(0b11110000u32, 3).into()
+        AInt::<u32, typenum::U5>::extract_from(0b11110000u32, 3).into()
     );
 }
 
 #[test]
 fn extract_typed() {
-    assert_eq!(u5::new(0b10000), u5::extract(0b11110000_u8, 0));
-    assert_eq!(u5::new(0b00011), u5::extract(0b11110000_11110110_u16, 6));
+    assert_eq!(u5::new(0b10000), u5::extract_from(0b11110000_u8, 0));
+    assert_eq!(u5::new(0b00011), u5::extract_from(0b11110000_11110110_u16, 6));
     assert_eq!(
         u5::new(0b01011),
-        u5::extract(0b11110010_11110110_00000000_00000000_u32, 22)
+        u5::extract_from(0b11110010_11110110_00000000_00000000_u32, 22)
     );
     assert_eq!(
         u5::new(0b01011),
-        u5::extract(
+        u5::extract_from(
             0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_u64,
             54
         )
     );
 
-    assert_eq!(u5::new(0b01011), u5::extract(0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_u128, 118));
+    assert_eq!(u5::new(0b01011), u5::extract_from(0b11110010_11110110_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_u128, 118));
 }
 
 #[test]
 fn extract_full_width_typed() {
     assert_eq!(
         0b1010_0011,
-        AInt::<u8, typenum::U8>::extract(0b1010_0011_u8, 0).value()
+        AInt::<u8, typenum::U8>::extract_from(0b1010_0011_u8, 0).value()
     );
     assert_eq!(
         0b1010_0011,
-        AInt::<u8, typenum::U8>::extract(0b1111_1111_1010_0011_u16, 0).value()
+        AInt::<u8, typenum::U8>::extract_from(0b1111_1111_1010_0011_u16, 0).value()
     );
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_8() {
-    let _ = u5::extract(0b11110000u8, 4);
+    let _ = u5::extract_from(0b11110000u8, 4);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_8_full_width() {
-    let _ = AInt::<u8, typenum::U8>::extract(0b11110000u8, 1);
+    let _ = AInt::<u8, typenum::U8>::extract_from(0b11110000u8, 1);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_16() {
-    let _ = u5::extract(0b11110000u8, 12);
+    let _ = u5::extract_from(0b11110000u8, 12);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_32() {
-    let _ = u5::extract(0b11110000u8, 28);
+    let _ = u5::extract_from(0b11110000u8, 28);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_64() {
-    let _ = u5::extract(0b11110000u8, 60);
+    let _ = u5::extract_from(0b11110000u8, 60);
 }
 
 #[test]
 #[should_panic]
 fn extract_not_enough_bits_128() {
-    let _ = u5::extract(0b11110000u8, 124);
+    let _ = u5::extract_from(0b11110000u8, 124);
 }
 
 #[test]
@@ -1078,100 +1078,99 @@ fn from_le_and_be_bytes() {
         u56::new(0x12_34_56_78_9A_BC_DE)
     );
 
-    {
-        assert_eq!(
-            AInt::<u128, typenum::U56>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE]),
-            AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE)
-        );
+    assert_eq!(
+        AInt::<u128, typenum::U56>::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE]),
+        AInt::<u128, typenum::U56>::new(0x12_34_56_78_9A_BC_DE)
+    );
 
-        assert_eq!(
-            u72::from_le_bytes([0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
-            u72::new(0x12_34_56_78_9A_BC_DE_FE_DC)
-        );
+    assert_eq!(
+        u72::from_le_bytes([0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
+        u72::new(0x12_34_56_78_9A_BC_DE_FE_DC)
+    );
 
-        assert_eq!(
-            u72::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC]),
-            u72::new(0x12_34_56_78_9A_BC_DE_FE_DC)
-        );
+    assert_eq!(
+        u72::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC]),
+        u72::new(0x12_34_56_78_9A_BC_DE_FE_DC)
+    );
 
-        assert_eq!(
-            u80::from_le_bytes([0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
-            u80::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA)
-        );
+    assert_eq!(
+        u80::from_le_bytes([0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
+        u80::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA)
+    );
 
-        assert_eq!(
-            u80::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA]),
-            u80::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA)
-        );
+    assert_eq!(
+        u80::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA]),
+        u80::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA)
+    );
 
-        assert_eq!(
-            u88::from_le_bytes([0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
-            u88::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98)
-        );
+    assert_eq!(
+        u88::from_le_bytes([0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]),
+        u88::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98)
+    );
 
-        assert_eq!(
-            u88::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98]),
-            u88::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98)
-        );
+    assert_eq!(
+        u88::from_be_bytes([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98]),
+        u88::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98)
+    );
 
-        assert_eq!(
-            u96::from_le_bytes([
-                0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12
-            ]),
-            u96::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76)
-        );
+    assert_eq!(
+        u96::from_le_bytes([
+            0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12
+        ]),
+        u96::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76)
+    );
 
-        assert_eq!(
-            u96::from_be_bytes([
-                0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76
-            ]),
-            u96::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76)
-        );
+    assert_eq!(
+        u96::from_be_bytes([
+            0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76
+        ]),
+        u96::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76)
+    );
 
-        assert_eq!(
-            u104::from_le_bytes([
-                0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12
-            ]),
-            u104::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54)
-        );
+    assert_eq!(
+        u104::from_le_bytes([
+            0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12
+        ]),
+        u104::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54)
+    );
 
-        assert_eq!(
-            u104::from_be_bytes([
-                0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54
-            ]),
-            u104::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54)
-        );
+    assert_eq!(
+        u104::from_be_bytes([
+            0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54
+        ]),
+        u104::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54)
+    );
 
-        assert_eq!(
-            u112::from_le_bytes([
-                0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12
-            ]),
-            u112::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32)
-        );
+    assert_eq!(
+        u112::from_le_bytes([
+            0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12
+        ]),
+        u112::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32)
+    );
 
-        assert_eq!(
-            u112::from_be_bytes([
-                0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32
-            ]),
-            u112::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32)
-        );
+    assert_eq!(
+        u112::from_be_bytes([
+            0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32
+        ]),
+        u112::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32)
+    );
 
-        assert_eq!(
-            u120::from_le_bytes([
-                0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34,
-                0x12
-            ]),
-            u120::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32_10)
-        );
+    assert_eq!(
+        u120::from_le_bytes([
+            0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34,
+            0x12
+        ]),
+        u120::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32_10)
+    );
 
-        assert_eq!(
-            u120::from_be_bytes([
-                0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32,
-                0x10
-            ]),
-            u120::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32_10)
-        );
-    }
+    assert_eq!(
+        u120::from_be_bytes([
+            0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32,
+            0x10
+        ]),
+        u120::new(0x12_34_56_78_9A_BC_DE_FE_DC_BA_98_76_54_32_10)
+    );
+
 }
 
 #[test]

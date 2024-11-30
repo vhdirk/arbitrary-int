@@ -105,8 +105,8 @@ macro_rules! aint_impl_signed {
             where
                 $type: AIntContainer + Debug,
                 Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>  {
-
+                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+            {
                 pub const ZERO: Self = Self { value: 0, bits: PhantomData };
                 pub const ONE: Self = Self {value: 1, bits: PhantomData };
 
@@ -416,36 +416,42 @@ macro_rules! aint_impl {
                 pub fn try_extract<E>(value: E, start_bit: usize) -> Result<Self, TryNewError>
                 where
                     // From<$type> makes sure that any value of Self will fit in E
-                    E: Number + Shr<usize, Output=E> + From<$type> + TryInto<$type>,
-                    E::Container: Shr<usize, Output=E::Container> + BitAnd<E::Container, Output=E::Container>,
-                    $type: TryFrom<<E as Number>::Container> + Into<E::Container>,
+                    E: Number,
+                    <E as Number>::Bits: typenum::IsGreaterOrEqual<Bits, Output=typenum::True>,
+                    E::Container: Shr<usize, Output=E::Container> + BitAnd<E::Container, Output=E::Container> + TryInto<$type>,
+                    <E as Number>::Container: TryInto<$type> + From<$type>,
+                    <<E as Number>::Container as TryInto<$type>>::Error: Debug,
+
+                    $type: TryFrom<<E as Number>::Container>,
                     <$type as TryFrom<<E as Number>::Container>>::Error: Debug,
-                    <E as TryInto<$type>>::Error: Debug,
                 {
                     use typenum::Unsigned;
-                    if (start_bit + <$type>::BITS as usize) > <E as Number>::Bits::USIZE {
+                    if (start_bit + Bits::USIZE) > <E as Number>::Bits::USIZE {
                         return Err(TryNewError{ kind: AIntErrorKind::PosOverflow})
                     }
 
                     // Unwrap should be safe here since we did a check before
-                    Ok(Self::new_impl(TryInto::<$type>::try_into((value.value() >> (start_bit)) & Self::MASK.into()).unwrap()))
+                    Ok(Self::new_wrapping( TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap()))
                 }
 
-                pub fn extract<E>(value: E, start_bit: usize) -> Self
+                pub fn extract_from<E>(value: E, start_bit: usize) -> Self
                 where
                     // From<$type> makes sure that any value of Self will fit in E
-                    E: Number + Shr<usize, Output=E> + From<$type> + TryInto<$type>,
-                    E::Container: Shr<usize, Output=E::Container> + BitAnd<E::Container, Output=E::Container>,
-                    $type: TryFrom<<E as Number>::Container> + Into<E::Container>,
+                    E: Number,
+                    <E as Number>::Bits: typenum::IsGreaterOrEqual<Bits, Output=typenum::True>,
+                    E::Container: Shr<usize, Output=E::Container> + BitAnd<E::Container, Output=E::Container> + TryInto<$type>,
+                    <E as Number>::Container: TryInto<$type> + From<$type>,
+                    <<E as Number>::Container as TryInto<$type>>::Error: Debug,
+
+                    $type: TryFrom<<E as Number>::Container>,
                     <$type as TryFrom<<E as Number>::Container>>::Error: Debug,
-                    <E as TryInto<$type>>::Error: Debug,
                 {
                     use typenum::Unsigned;
 
-                    assert!(start_bit + <$type>::BITS as usize <= <E as Number>::Bits::USIZE );
+                    assert!((start_bit + Bits::USIZE) <= <E as Number>::Bits::USIZE );
 
                     // Unwrap should be safe here since we did a check before
-                    Self::new_impl( TryInto::<$type>::try_into((value.value() >> (start_bit)) & Self::MASK.into()).unwrap())
+                    Self::new_impl( TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap())
                 }
 
                 /// Returns a AInt with a wider bit depth but with the same base data type
@@ -630,10 +636,10 @@ macro_rules! aint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn from_be_bytes(from: [u8; AInt::<$type, Bits>::Bytes::U8] ) -> Self {
+                pub const fn from_be_bytes(from: [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] ) -> Self {
                     let mut value: $type = 0;
                     let mut bi = 0;
-                    let num_bytes = AInt::<$type, Bits>::Bytes::USIZE;
+                    let num_bytes = <AInt::<$type, Bits> as Number>::Bytes::USIZE;
 
                     while bi < num_bytes {
                         value |= (from[num_bytes - 1 - bi] as $type) << (bi * 8);
@@ -665,11 +671,11 @@ macro_rules! aint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn from_le_bytes(from: [u8; AInt::<$type, Bits>::Bytes::U8] ) -> Self {
+                pub const fn from_le_bytes(from: [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] ) -> Self {
                     let mut value: $type = 0;
 
                     let mut bx = 0;
-                    let num_bytes = AInt::<$type, Bits>::Bytes::USIZE;
+                    let num_bytes = <AInt::<$type, Bits> as Number>::Bytes::USIZE;
 
                     while bx < num_bytes {
                         value |= (from[bx] as $type) << (bx * 8);
@@ -694,7 +700,7 @@ macro_rules! aint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn from_ne_bytes(from: [u8; AInt::<$type, Bits>::Bytes::U8] ) -> Self {
+                pub const fn from_ne_bytes(from: [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] ) -> Self {
                     #[cfg(target_endian = "little")]
                     {
                         Self::from_le_bytes(from)
@@ -1001,11 +1007,11 @@ macro_rules! aint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn to_be_bytes(self) -> [u8; AInt::<$type, Bits>::Bytes::U8] {
-                    let mut ret = [0; AInt::<$type, Bits>::Bytes::U8];
+                pub const fn to_be_bytes(self) -> [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] {
+                    let mut ret = [0; <AInt::<$type, Bits> as Number>::Bytes::USIZE];
 
                     let mut bi = 0;
-                    let num_bytes = AInt::<$type, Bits>::Bytes::USIZE;
+                    let num_bytes = <AInt::<$type, Bits> as Number>::Bytes::USIZE;
                     while bi < num_bytes {
                         ret[num_bytes - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
                         bi += 1;
@@ -1043,11 +1049,11 @@ macro_rules! aint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn to_le_bytes(self) -> [u8; AInt::<$type, Bits>::Bytes::U8] {
-                    let mut ret = [0; AInt::<$type, Bits>::Bytes::U8];
+                pub const fn to_le_bytes(self) -> [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] {
+                    let mut ret = [0; <AInt::<$type, Bits> as Number>::Bytes::USIZE];
 
                     let mut bi = 0;
-                    while bi < (AInt::<$type, Bits>::Bytes::USIZE) {
+                    while bi < (<AInt::<$type, Bits> as Number>::Bytes::USIZE) {
                         ret[bi] = (self.value >> (bi * 8)) as u8;
                         bi += 1;
                     }
@@ -1069,7 +1075,7 @@ macro_rules! aint_impl {
 
                 #[cfg(feature="generic_const_exprs")]
                 #[inline]
-                pub const fn to_ne_bytes(self) -> [u8; AInt::<$type, Bits>::Bytes::U8] {
+                pub const fn to_ne_bytes(self) -> [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] {
                     #[cfg(target_endian = "little")]
                     {
                         self.to_le_bytes()

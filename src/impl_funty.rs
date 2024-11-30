@@ -595,10 +595,12 @@ macro_rules! bytes_operation_impl {
         {
             type Bytes = [u8; $bytes];
 
+            #[inline]
             fn to_be_bytes(self) -> Self::Bytes {
                 <Self>::to_be_bytes(self)
             }
 
+            #[inline]
             fn to_le_bytes(self) -> Self::Bytes {
                 <Self>::to_le_bytes(self)
             }
@@ -608,10 +610,12 @@ macro_rules! bytes_operation_impl {
                 <Self>::to_ne_bytes(self)
             }
 
+            #[inline]
             fn from_le_bytes(from: Self::Bytes) -> Self {
                 <Self>::from_le_bytes(from)
             }
 
+            #[inline]
             fn from_be_bytes(from: Self::Bytes) -> Self {
                 <Self>::from_be_bytes(from)
             }

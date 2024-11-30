@@ -6,8 +6,8 @@
     "num-traits",
     "borsh",
     "serde",
-    // "defmt",
-    // "schemars",
+    "defmt",
+    "schemars",
     "funty",
   ],
 

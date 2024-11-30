@@ -1,31 +1,45 @@
 use crate::error::TryNewError;
-use core::{fmt};
+use core::fmt;
 use std::error::Error;
 use std::ops::{Add, Div};
 
 pub trait BitsSpec:
-    typenum::Unsigned + typenum::IsGreaterOrEqual<typenum::U1> + typenum::IsLessOrEqual<typenum::U128>
+    typenum::Unsigned
+    + typenum::Cmp<Self>
+    + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
+    + typenum::IsLessOrEqual<typenum::U128, Output = typenum::True>
+    + PartialEq<Self>
+    + PartialOrd<Self>
 {
 }
 
 impl<T> BitsSpec for T where
     T: typenum::Unsigned
-        + typenum::IsGreaterOrEqual<typenum::U1>
-        + typenum::IsLessOrEqual<typenum::U128>
+        + typenum::Cmp<Self>
+        + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
+        + typenum::IsLessOrEqual<typenum::U128, Output = typenum::True>
+        + PartialEq<T>
+        + PartialOrd<T>
 {
 }
 
-
 pub trait BytesSpec:
-    typenum::Unsigned + typenum::IsGreaterOrEqual<typenum::U1> + typenum::IsLessOrEqual<typenum::U8> + PartialEq<Self> + PartialOrd<Self>
+    typenum::Unsigned
+    + typenum::Cmp<Self>
+    + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
+    + typenum::IsLessOrEqual<typenum::U16, Output = typenum::True>
+    + PartialEq<Self>
+    + PartialOrd<Self>
 {
 }
 
 impl<T> BytesSpec for T where
     T: typenum::Unsigned
-        + typenum::IsGreaterOrEqual<typenum::U1>
-        + typenum::IsLessOrEqual<typenum::U8>
-        + PartialEq<T> + PartialOrd<T>
+        + typenum::Cmp<Self>
+        + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
+        + typenum::IsLessOrEqual<typenum::U16, Output = typenum::True>
+        + PartialEq<T>
+        + PartialOrd<T>
 {
 }
 
@@ -34,7 +48,6 @@ pub trait AIntContainer:
 {
     type Bits: BitsSpec;
 }
-
 
 macro_rules! impl_container {
     ($( $type:ty, $bits:ty ),+) => {
@@ -58,8 +71,6 @@ impl_container!(i32, typenum::U32);
 impl_container!(i64, typenum::U64);
 impl_container!(i128, typenum::U128);
 
-
-
 pub trait UnsignedNumberType:
     AIntContainer + From<u8> + TryFrom<u16> + TryFrom<u32> + TryFrom<u64> + TryFrom<u128>
 {
@@ -79,7 +90,6 @@ impl<T> SignedNumberType for T where
     T: AIntContainer + From<i8> + TryFrom<i16> + TryFrom<i32> + TryFrom<i64> + TryFrom<i128>
 {
 }
-
 
 pub trait Number
 where
@@ -117,7 +127,6 @@ where
     /// Returns the type as a fundamental data type
     fn value(self) -> Self::Container;
 
-
     /// Initializes a new value without checking the bounds
     ///
     /// # Safety
@@ -126,7 +135,6 @@ where
 
     fn as_signed(self) -> Self::SignedEquivalent;
     fn as_unsigned(self) -> Self::UnsignedEquivalent;
-
 }
 
 macro_rules! impl_native {
@@ -135,7 +143,7 @@ macro_rules! impl_native {
             impl Number for $type {
                 type Container = $type;
                 type Bits = <$type as AIntContainer>::Bits;
-                type Bytes = <<<$type as AIntContainer>::Bits as Add<typenum::U7>>::Output as Div<typenum::U8>>::Output;
+                type Bytes = <<$type as AIntContainer>::Bits as Div<typenum::U8>>::Output;
                 type TryNewError = TryNewError;
 
                 type SignedEquivalent = $signed;
@@ -199,7 +207,6 @@ macro_rules! impl_native {
     };
 }
 
-
 impl_native!(u8, (u8, i8));
 impl_native!(u16, (u16, i16));
 impl_native!(u32, (u32, i32));
@@ -212,13 +219,11 @@ impl_native!(i32, (u32, i32));
 impl_native!(i64, (u64, i64));
 impl_native!(i128, (u128, i128));
 
-
 #[allow(unused)]
 pub trait Unsigned: Number {}
 
 #[allow(unused)]
 pub trait Signed: Number {}
-
 macro_rules! impl_native_signedness {
     ($sign:ty, ( $( $type:ty ),+) ) => {
         $(

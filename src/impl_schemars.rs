@@ -1,16 +1,18 @@
 use schemars::JsonSchema;
 
-use crate::Number;
+use crate::{traits::BitsSpec, Number};
+use core::fmt::Debug;
+use super::{AInt, AIntContainer};
 
-use super::{AInt, NumberType};
-
-impl<T, const BITS: usize> JsonSchema for AInt<T, BITS>
+impl<T, Bits> JsonSchema for AInt<T, Bits>
 where
-    Self: Number<UnderlyingType = T>,
-    T: NumberType,
+    Self: Number<Container = T, Bits = Bits>,
+    T: AIntContainer + TryInto<f64>,
+    Bits: BitsSpec,
+    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     fn schema_name() -> String {
-        [if Self::SIGNED { "int" } else { "uint" }, &BITS.to_string()].concat()
+        [if Self::SIGNED { "int" } else { "uint" }, &Bits::U8.to_string()].concat()
     }
 
     fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
@@ -20,8 +22,8 @@ where
             format: Some(Self::schema_name()),
             number: Some(Box::new(NumberValidation {
                 // can be done with https://github.com/rust-lang/rfcs/pull/2484
-                // minimum: Some(Self::MIN.value().try_into().ok().unwrap()),
-                // maximum: Some(Self::MAX.value().try_into().ok().unwrap()),
+                minimum: Some(Self::MIN.value().try_into().ok().unwrap()),
+                maximum: Some(Self::MAX.value().try_into().ok().unwrap()),
                 ..Default::default()
             })),
             ..Default::default()
