@@ -1,6 +1,5 @@
-use std::process::Output;
-
-use crate::{traits::BitsSpec, AInt, AIntContainer, Number};
+use core::ops::{Add, Shr};
+use crate::{AInt, AIntContainer, Number};
 
 #[allow(unused)]
 pub(crate) struct Assert<const COND: bool> {}
@@ -24,50 +23,6 @@ impl IsFalse for Assert<false> {}
 //     BitsA: BitsSpec,
 //     BitsB: BitsSpec + typenum::IsNotEqual<BitsA>,
 // {}
-
-
-
-pub trait NotSame<RhsT, RhsBits>
-    where
-    RhsT: AIntContainer,
-    RhsBits: BitsSpec,
-    <RhsT as AIntContainer>::Bits: typenum::IsGreaterOrEqual<RhsBits, Output = typenum::True>,
-{}
-
-impl<T, Bits, RhsT, RhsBits> NotSame<RhsT, RhsBits> for AInt<T, Bits> where
-    // validate Self
-    T: AIntContainer,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
-
-    // Validate From
-    RhsT: AIntContainer,
-    RhsBits: BitsSpec,
-    <RhsT as AIntContainer>::Bits: typenum::IsGreaterOrEqual<RhsBits, Output = typenum::True>,
-
-    Bits: typenum::IsNotEqual<RhsBits, Output = typenum::True>,
-    <T as AIntContainer>::Bits: typenum::IsNotEqual<<RhsT as AIntContainer>::Bits, Output = typenum::True>,
-{}
-
-
-pub trait NotSame2 {}
-
-
-
-impl<T, Bits, RhsT, RhsBits> NotSame2 for (AInt<T, Bits>, AInt<RhsT, RhsBits>) where
-    // validate Self
-    T: AIntContainer,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
-
-    // Validate From
-    RhsT: AIntContainer,
-    RhsBits: BitsSpec,
-    <RhsT as AIntContainer>::Bits: typenum::IsGreaterOrEqual<RhsBits, Output = typenum::True>,
-
-    Bits: typenum::IsNotEqual<RhsBits, Output = typenum::True>,
-    <T as AIntContainer>::Bits: typenum::IsNotEqual<<RhsT as AIntContainer>::Bits, Output = typenum::True>,
-{}
 
 
 

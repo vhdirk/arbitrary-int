@@ -19,11 +19,11 @@ use crate::traits::{BitsSpec, AIntContainer};
 macro_rules! aint_impl_funty {
     ($($type:ident),+) => {
         $(
-            impl<Bits> funty::Fundamental for AInt<$type, Bits>
+            impl<const BITS: usize> funty::Fundamental for AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug +,
                 Bits: BitsSpec + PartialEq<Bits> + PartialOrd<Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+                ,
                 Self: Number<Container = $type, Bits=Bits>
                     + PartialEq<Self>
                     + BitXor
@@ -119,11 +119,11 @@ macro_rules! aint_impl_funty {
             }
 
 
-            impl<Bits> funty::Integral for AInt<$type, Bits>
+            impl<const BITS: usize> funty::Integral for AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
                 Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
+                ,
                 Self: Number<Container = $type, Bits=Bits>
                     + funty::Numeric
                     + Hash
@@ -560,7 +560,7 @@ aint_impl_funty!(i8, i16, i32, i64, i128);
 macro_rules! bytes_operation_impl {
     ($type:ident, $bytes: expr, $bytes_type: ident) => {
 
-        impl<Bits> funty::Numeric for AInt<$type, Bits>
+        impl<const BITS: usize> funty::Numeric for AInt<$type, BITS>
         where
             Bits: BitsSpec,
             <$type as Number>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
@@ -597,7 +597,7 @@ macro_rules! bytes_operation_impl {
 
             #[inline]
             fn to_be_bytes(self) -> Self::Bytes {
-                <Self>::to_be_bytes(self)
+                <Self>::to_be_bytes::<$bytes>(self)
             }
 
             #[inline]

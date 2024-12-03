@@ -1,50 +1,35 @@
-use crate::traits::{Signed, Unsigned, BitsSpec};
-use crate::util::{CompileTimeAssert};
-use crate::{AIntErrorKind, Number, AIntContainer, ParseAIntError, TryNewError};
+use crate::traits::{Signed, Unsigned};
+use crate::util::CompileTimeAssert;
+use crate::{AIntContainer, AIntErrorKind, Number, ParseAIntError, TryNewError};
 use core::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::ops::{BitAnd, Shr, Add, Div};
-use typenum::Unsigned as _;
-
+use std::ops::{Add, BitAnd, Shr};
+use crate::bits::{self,  ConstBounded, ConstMin, ConstMax};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 #[repr(transparent)]
-pub struct AInt<T, Bits>
+pub struct AInt<T, const BITS: usize>
 where
     T: AIntContainer,
-    Bits: BitsSpec,
-    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     pub(crate) value: T,
-    bits: PhantomData<Bits>
 }
 
-impl<T, Bits> Debug for AInt<T, Bits>
+impl<T, const BITS: usize> Debug for AInt<T, BITS>
 where
     T: AIntContainer + Debug,
-    Bits: BitsSpec,
-    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> core::fmt::Result {
-        self.value.fmt(f)
+        Debug::fmt(&self.value, f)
     }
 }
 
-
-impl<T, Bits> AInt<T, Bits>
+impl<T, const BITS: usize> AInt<T, BITS>
 where
     T: AIntContainer + Debug,
-    Bits: BitsSpec,
-    T::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
-    #[inline]
-    const fn new_impl(value: T) -> Self  {
-        Self { value, bits: PhantomData }
-    }
-
-
     #[inline]
     pub const fn value(self) -> T {
         self.value
@@ -56,41 +41,59 @@ where
     /// Must only be called with a value less than or equal to [Self::MAX](Self::MAX) value.
     #[inline]
     pub const unsafe fn new_unchecked(value: T) -> Self {
-
-        Self { value, bits: PhantomData }
+        Self { value }
     }
+}
+
+
+impl<T, const BITS: usize, const MIN_BITS: usize> ConstMin<BITS, MIN_BITS> for AInt<T, BITS>
+where
+    T: AIntContainer + Debug,
+    ConstBounded<BITS, MIN_BITS, 128>: Sized,
+{
+
+}
+
+impl<T, const BITS: usize, const MAX_BITS: usize> ConstMax<BITS, MAX_BITS> for AInt<T, BITS>
+where
+    T: AIntContainer + Debug,
+    ConstBounded<BITS, 1, MAX_BITS>: Sized,
+{
+
 }
 
 
 macro_rules! aint_impl_unsigned {
     ($($type:ident),+) => {
         $(
-
-            impl<Bits> AInt<$type, Bits>
+            impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True> {
+                ConstBounded<BITS, 1, {$type::BITS as usize}>: Sized
+            {
+                // we define all consts here and reference them in impl Number; that way, we can use them in const fns
+                pub const ZERO: Self = Self { value: 0 };
+                pub const ONE: Self = Self { value: 1 };
 
-                pub const ZERO: Self = Self { value: 0, bits: PhantomData };
-                pub const ONE: Self = Self {value: 1, bits: PhantomData };
+                #[allow(unused_comparisons)]
+                pub const SIGNED: bool = <$type>::MIN < 0;
 
-                pub const MIN: Self = Self::ZERO;
+                pub const MIN: Self = Self { value: (<$type>::MIN >> (<$type>::BITS - BITS as u32)) };
 
                 // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
                 // we will get a compiler error right here
-                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS - Bits::U32)), bits: PhantomData };
+                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS - BITS as u32)) };
 
-                pub const SIGNED: bool = false;
-
-                pub(crate) const MASK: $type = Self::MAX.value;
+                // can't shift by BITS in one go. x86 doesn't support that
+                pub const MASK: $type = !(((!(0 as $type)) << (BITS -1) ) << 1);
             }
 
-            impl<Bits> Unsigned for AInt<$type, Bits>
+            impl<const BITS: usize> Unsigned for AInt<$type, BITS>
             where
+                Self: Number<Container=$type>,
                 $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>  { }
+                ConstBounded<BITS, 1, 128>: Sized
+            { }
         )+
     }
 }
@@ -101,30 +104,18 @@ macro_rules! aint_impl_signed {
     ($($type:ident),+) => {
         $(
 
-            impl<Bits> AInt<$type, Bits>
+            impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
-            {
-                pub const ZERO: Self = Self { value: 0, bits: PhantomData };
-                pub const ONE: Self = Self {value: 1, bits: PhantomData };
+                ConstBounded<BITS, 1, 128>: Sized
+            {  }
 
-                pub const MIN: Self = Self { value: (<$type>::MIN >> (<$type>::BITS - Bits::U32)), bits: PhantomData };
-
-                // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
-                // we will get a compiler error right here
-                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS - Bits::U32)), bits: PhantomData };
-
-                pub const SIGNED: bool = true;
-
-                pub(crate) const MASK: $type = (1 << Bits::U8) - 1;
-            }
-
-            impl<Bits> Signed for AInt<$type, Bits>
-                where $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>  { }
+            impl<const BITS: usize> Signed for AInt<$type, BITS>
+            where
+                Self: Number<Container=$type>,
+                $type: AIntContainer + Debug,
+                ConstBounded<BITS, 1, 128>: Sized
+            { }
 
         )+
     }
@@ -132,22 +123,21 @@ macro_rules! aint_impl_signed {
 
 aint_impl_signed!(i8, i16, i32, i64, i128);
 
-
 macro_rules! aint_impl_number {
     ($( $type:ty, ( $unsigned:ty, $signed:ty ) ),+) => {
         $(
 
-            impl<Bits> AInt<$type, Bits>
+            impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+                ConstBounded<BITS, 1, 128>: Sized
+
             {
 
                 #[allow(unused)]
                 pub(crate) const fn sign_bit() -> $type {
                     if Self::SIGNED {
-                        Self::ONE.value << (Bits::U8 - 1)
+                        Self::ONE.value << (BITS - 1)
                     } else {
                         Self::ZERO.value
                     }
@@ -159,38 +149,42 @@ macro_rules! aint_impl_number {
                     assert!(value <= Self::MAX.value);
                     assert!(value >= Self::MIN.value);
 
-                    Self { value, bits: PhantomData }
+                    Self { value }
                 }
 
             }
 
 
-            impl<Bits> Number for AInt<$type, Bits>
+            impl<const BITS: usize> Number for AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+                ConstBounded<BITS, 1, 128>: Sized
             {
                 type Container = $type;
                 type TryNewError = TryNewError;
 
-                type Bits = Bits;
-                type Bytes = <<<$type as AIntContainer>::Bits as Add<typenum::U7>>::Output as Div<typenum::U8>>::Output;
+                type UnsignedEquivalent = AInt<$unsigned, BITS>;
+                type SignedEquivalent =  AInt<$signed, BITS>;
 
-                type UnsignedEquivalent = AInt<$unsigned, Bits>;
-                type SignedEquivalent =  AInt<$signed, Bits>;
+                const BITS: u32 = BITS as u32;
+                const BYTES: u32 = (BITS as u32 + 7) >> 3;
 
-                const SIGNED: bool = <Self>::SIGNED;
+                // copy/paste from above since the compiler doesn't like the cyclic stuff referencing Self could generate
 
-                const MIN: Self = <Self>::MIN;
+                const ZERO: Self = Self { value: 0 };
+                const ONE: Self = Self { value: 1 };
 
-                const MAX: Self = <Self>::MAX;
+                #[allow(unused_comparisons)]
+                const SIGNED: bool = <$type>::MIN < 0;
 
-                const ZERO: Self = <Self>::ZERO;
+                const MIN: Self = Self { value: (<$type>::MIN >> (<$type>::BITS - BITS as u32)) };
 
-                const ONE: Self = <Self>::ONE;
+                // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
+                // we will get a compiler error right here
+                const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS - BITS as u32)) };
 
-                const MASK: $type = <Self>::MASK;
+                // can't shift by BITS in one go. x86 doesn't support that
+                const MASK: $type = !(((!(0 as $type)) << (BITS -1) ) << 1);
 
                 #[inline]
                 fn try_new(value: Self::Container) -> Result<Self, Self::TryNewError> {
@@ -204,7 +198,7 @@ macro_rules! aint_impl_number {
 
                 #[inline]
                 unsafe fn new_unchecked(value: Self::Container) -> Self {
-                    Self::new_impl(value)
+                    Self { value }
                 }
 
                 #[inline]
@@ -263,21 +257,19 @@ aint_impl_number!(i32, (u32, i32));
 aint_impl_number!(i64, (u64, i64));
 aint_impl_number!(i128, (u128, i128));
 
-
 macro_rules! aint_impl {
     ($($type:ident),+) => {
         $(
 
-            impl <Bits> AInt<$type, Bits>
+            impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+                ConstBounded<BITS, 1, { <$type>::BITS as usize }>: Sized
             {
 
                 // #[inline]
                 // const fn new_impl(value: $type) -> Self  {
-                //     Self { value, bits: PhantomData }
+                //     Self { value }
                 // }
 
                 // #[inline]
@@ -286,7 +278,7 @@ macro_rules! aint_impl {
                 //     assert!(value <= Self::MAX.value);
                 //     assert!(value >= Self::MIN.value);
 
-                //     Self { value, bits: PhantomData }
+                //     Self { value }
                 // }
 
                 // #[inline]
@@ -301,7 +293,7 @@ macro_rules! aint_impl {
                 // #[inline]
                 // pub const unsafe fn new_unchecked(value: $type) -> Self {
 
-                //     Self { value, bits: PhantomData }
+                //     Self { value }
                 // }
 
 
@@ -313,19 +305,19 @@ macro_rules! aint_impl {
                     } else if value < Self::MIN.value {
                         Err(TryNewError { kind: AIntErrorKind::NegOverflow})
                     } else {
-                        Ok(Self::new_impl(value))
+                        Ok(Self {value })
                     }
                 }
 
                 pub const fn new_wrapping(value: $type) -> Self {
                     if Self::SIGNED {
                         if (value & Self::MASK) == 0 {
-                            Self::new_impl(value & Self::MAX.value)
+                            Self {value: value & Self::MAX.value }
                         } else {
-                            Self::new_impl(value | !Self::MAX.value)
+                            Self {value: value | !Self::MAX.value }
                         }
                     } else {
-                        Self::new_impl(value & Self::MASK)
+                        Self {value: value & Self::MASK }
                     }
                 }
 
@@ -341,17 +333,17 @@ macro_rules! aint_impl {
                     } else if value <= Self::MIN.value {
                         Self::MIN
                     } else {
-                        Self::new_impl(value)
+                        Self {value }
                     }
                 }
 
                 pub(crate) const fn new_overflowing_impl((value, overflow): ($type, bool)) -> (Self, bool) {
                     if value > Self::MAX.value {
-                        (Self::new_impl(value & Self::MAX.value), true)
+                        (Self {value: value & Self::MAX.value}, true)
                     } else if value < Self::MIN.value {
-                        (Self::new_impl(value | !Self::MAX.value), true)
+                        (Self {value: value | !Self::MAX.value}, true)
                     } else {
-                        (Self::new_impl(value), overflow)
+                        (Self {value}, overflow)
                     }
                 }
 
@@ -373,19 +365,18 @@ macro_rules! aint_impl {
                     } else {
                         // Can not overflow since we just checked
                         #[allow(arithmetic_overflow)]
-                        Self::new_impl(0 - 1)
+                        Self {value: 0 - 1}
                     }
                 }
 
                 #[inline]
-                pub const fn bits() -> usize {
-                    Bits::USIZE
+                pub const fn bits() -> u32 {
+                    Self::BITS
                 }
 
                 #[inline]
-                pub const fn bytes() -> usize {
-                    use typenum::Unsigned;
-                    <Self as Number>::Bytes::USIZE
+                pub const fn bytes() -> u32 {
+                    Self::BYTES
                 }
 
                 #[inline]
@@ -413,20 +404,19 @@ macro_rules! aint_impl {
                     Self::MAX
                 }
 
-                pub fn try_extract<E>(value: E, start_bit: usize) -> Result<Self, TryNewError>
+                #[cfg(not(feature = "generic_const_exprs"))]
+                pub fn try_extract_from<F>(value: F, start_bit: u32) -> Result<Self, TryNewError>
                 where
-                    // From<$type> makes sure that any value of Self will fit in E
-                    E: Number,
-                    <E as Number>::Bits: typenum::IsGreaterOrEqual<Bits, Output=typenum::True>,
-                    E::Container: Shr<usize, Output=E::Container> + BitAnd<E::Container, Output=E::Container> + TryInto<$type>,
-                    <E as Number>::Container: TryInto<$type> + From<$type>,
-                    <<E as Number>::Container as TryInto<$type>>::Error: Debug,
+                    // From<Self> makes sure that any value of Self will fit in and as such, F has to be equal in size or larger
+                    F: Number + From<Self>,
+                    <F as Number>::Container: Shr<u32, Output=<F as Number>::Container> + BitAnd<<F as Number>::Container, Output=<F as Number>::Container> + TryInto<$type>,
+                    <F as Number>::Container: TryInto<$type> + From<$type>,
+                    <F::Container as TryInto<$type>>::Error: Debug,
 
-                    $type: TryFrom<<E as Number>::Container>,
-                    <$type as TryFrom<<E as Number>::Container>>::Error: Debug,
+                    $type: TryFrom<<F as Number>::Container>,
+                    <$type as TryFrom<<F as Number>::Container>>::Error: Debug,
                 {
-                    use typenum::Unsigned;
-                    if (start_bit + Bits::USIZE) > <E as Number>::Bits::USIZE {
+                    if (start_bit + Self::BITS) > <F as Number>::BITS {
                         return Err(TryNewError{ kind: AIntErrorKind::PosOverflow})
                     }
 
@@ -434,43 +424,80 @@ macro_rules! aint_impl {
                     Ok(Self::new_wrapping( TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap()))
                 }
 
-                pub fn extract_from<E>(value: E, start_bit: usize) -> Self
+                #[cfg(not(feature = "generic_const_exprs"))]
+                pub fn extract_from<F>(value: F, start_bit: u32) -> Self
                 where
-                    // From<$type> makes sure that any value of Self will fit in E
-                    E: Number,
-                    <E as Number>::Bits: typenum::IsGreaterOrEqual<Bits, Output=typenum::True>,
-                    E::Container: Shr<usize, Output=E::Container> + BitAnd<E::Container, Output=E::Container> + TryInto<$type>,
-                    <E as Number>::Container: TryInto<$type> + From<$type>,
-                    <<E as Number>::Container as TryInto<$type>>::Error: Debug,
+                    // From<Self> makes sure that any value of Self will fit in and as such, F has to be equal in size or larger
+                    F: Number + From<Self>,
+                    <F as Number>::Container: Shr<u32, Output=<F as Number>::Container> + BitAnd<<F as Number>::Container, Output=<F as Number>::Container> + TryInto<$type>,
+                    <F as Number>::Container: TryInto<$type> + From<$type>,
+                    <F::Container as TryInto<$type>>::Error: Debug,
 
-                    $type: TryFrom<<E as Number>::Container>,
-                    <$type as TryFrom<<E as Number>::Container>>::Error: Debug,
+                    $type: TryFrom<<F as Number>::Container>,
+                    <$type as TryFrom<<F as Number>::Container>>::Error: Debug,
                 {
-                    use typenum::Unsigned;
-
-                    assert!((start_bit + Bits::USIZE) <= <E as Number>::Bits::USIZE );
+                    assert!((start_bit + Self::BITS) <= <F as Number>::BITS );
 
                     // Unwrap should be safe here since we did a check before
-                    Self::new_impl( TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap())
+                    Self { value: TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap()}
+                }
+
+                #[cfg(feature = "generic_const_exprs")]
+                pub fn try_extract_from<F>(value: F, start_bit: u32) -> Result<Self, TryNewError>
+                where
+                    // From<Self> makes sure that any value of Self will fit in and as such, F has to be equal in size or larger
+                    F: Number + From<Self>,
+                    ConstBounded<{<F as Number>::BITS as usize}, BITS, 128>: Sized,
+                    <F as Number>::Container: Shr<u32, Output=<F as Number>::Container> + BitAnd<<F as Number>::Container, Output=<F as Number>::Container> + TryInto<$type>,
+                    <F as Number>::Container: TryInto<$type> + From<$type>,
+                    <F as TryInto<$type>>::Error: Debug,
+
+                    $type: TryFrom<<F as Number>::Container>,
+                    <$type as TryFrom<<F as Number>::Container>>::Error: Debug,
+                {
+                    if (start_bit + Self::BITS) > <F as Number>::BITS {
+                        return Err(TryNewError{ kind: AIntErrorKind::PosOverflow})
+                    }
+
+                    // Unwrap should be safe here since we did a check before
+                    Ok(Self::new_wrapping( TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap()))
+                }
+
+                #[cfg(feature = "generic_const_exprs")]
+                pub fn extract_from<F>(value: F, start_bit: u32) -> Self
+                where
+                    // From<Self> makes sure that any value of Self will fit in and as such, F has to be equal in size or larger
+                    F: Number + From<Self>,
+                    ConstBounded<{<F as Number>::BITS as usize}, BITS, 128>: Sized,
+                    <F as Number>::Container: Shr<u32, Output=<F as Number>::Container> + BitAnd<<F as Number>::Container, Output=<F as Number>::Container> + TryInto<$type>,
+                    <F as Number>::Container: TryInto<$type> + From<$type>,
+                    <F as TryInto<$type>>::Error: Debug,
+
+                    $type: TryFrom<<F as Number>::Container>,
+                    <$type as TryFrom<<F as Number>::Container>>::Error: Debug,
+                {
+                    assert!((start_bit + Self::BITS) <= <F as Number>::BITS );
+
+                    // Unwrap should be safe here since we did a check before
+                    Self { value: TryInto::<$type>::try_into((value.value() >> start_bit) & Self::MASK.into()).unwrap()}
                 }
 
                 /// Returns a AInt with a wider bit depth but with the same base data type
-                pub const fn widen<W>(
+                pub const fn widen<const WIDEN_BITS: usize>(
                     self,
-                ) -> AInt<$type, W>
+                ) -> AInt<$type, WIDEN_BITS>
                 where
-                    W: BitsSpec + typenum::IsGreaterOrEqual<Bits, Output=typenum::True>,
-                    <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<W, Output=typenum::True>,
+                    ConstBounded<WIDEN_BITS, BITS, { <$type>::BITS as usize }>: Sized
                 {
-                    AInt::<$type, W>::new(self.value)
+                    AInt::<$type, WIDEN_BITS>::new(self.value)
                 }
 
                 #[inline]
                 pub const fn checked_add(self, rhs: Self) -> Option<Self> {
-                    if core::mem::size_of::<$type>() << 3 == Self::bits() {
+                    if core::mem::size_of::<$type>() << 3 == BITS {
                         // We are something like a AInt::<u8; 8>. We can fallback to the base implementation
                         match self.value.checked_add(rhs.value) {
-                            Some(value) => Some(Self::new_impl(value)),
+                            Some(value) => Some(Self {value}),
                             None => None,
                         }
                     } else {
@@ -480,7 +507,7 @@ macro_rules! aint_impl {
                         if sum > Self::MAX.value {
                             None
                         } else {
-                            Some(Self::new_impl(sum))
+                            Some(Self {value: sum})
                         }
                     }
                 }
@@ -493,7 +520,7 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn checked_div(self, rhs: Self) -> Option<Self> {
                     match self.value.checked_div(rhs.value) {
-                        Some(value) => Some(Self::new_impl(value)),
+                        Some(value) => Some(Self {value }),
                         None => None,
                     }
                 }
@@ -501,14 +528,14 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn checked_div_euclid(self, rhs: Self) -> Option<Self> {
                     match self.value.checked_div_euclid(rhs.value) {
-                        Some(value) => Some(Self::new_impl(value)),
+                        Some(value) => Some(Self {value }),
                         None => None,
                     }
                 }
 
                 #[inline]
                 pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
-                    let product = if Self::bits() << 1 <= (core::mem::size_of::<$type>() << 3) {
+                    let product = if BITS << 1 <= (core::mem::size_of::<$type>() << 3) {
                         // We have half the bits (e.g. u4 * u4) of the base type, so we can't overflow the base type
                         // wrapping_mul likely provides the best performance on all cpus
                         Some(self.value.wrapping_mul(rhs.value))
@@ -522,7 +549,7 @@ macro_rules! aint_impl {
                             if value < Self::MIN.value || value > Self::MAX.value {
                                 None
                             } else {
-                                Some(Self::new_impl(value))
+                                Some(Self {value})
                             }
                         }
                         None => None,
@@ -532,7 +559,7 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn checked_neg(self) -> Option<Self> {
                     match self.value.checked_neg() {
-                        Some(value) => Some(Self::new_impl(value)),
+                        Some(value) => Some(Self {value}),
                         None => None,
                     }
                 }
@@ -544,7 +571,7 @@ macro_rules! aint_impl {
                             if value < Self::MIN.value || value > Self::MAX.value {
                                 None
                             } else {
-                                Some(Self::new_impl(value))
+                                Some(Self {value})
                             }
                         }
                         None => None,
@@ -555,7 +582,7 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn checked_rem(self, rhs: Self) -> Option<Self> {
                     match self.value.checked_rem(rhs.value) {
-                        Some(value) => Some(Self::new_impl(value)),
+                        Some(value) => Some(Self {value}),
                         None => None,
                     }
                 }
@@ -563,33 +590,33 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn checked_rem_euclid(self, rhs: Self) -> Option<Self> {
                     match self.value.checked_rem_euclid(rhs.value) {
-                        Some(value) => Some(Self::new_impl(value)),
+                        Some(value) => Some(Self {value}),
                         None => None,
                     }
                 }
 
                 #[inline]
                 pub const fn checked_shl(self, rhs: u32) -> Option<Self> {
-                    if rhs >= Bits::U32 {
+                    if rhs >= BITS as u32 {
                         None
                     } else {
-                        Some(Self::new_impl((self.value << rhs) & Self::MASK))
+                        Some(Self::new_wrapping(self.value << rhs))
                     }
                 }
 
                 #[inline]
                 pub const fn checked_shr(self, rhs: u32) -> Option<Self> {
-                    if rhs >= Bits::U32 {
+                    if rhs >= BITS as u32 {
                         None
                     } else {
-                        Some(Self::new_impl(self.value >> rhs))
+                        Some(Self {value: self.value >> rhs})
                     }
                 }
 
                 #[inline]
                 pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
                     match self.value.checked_sub(rhs.value) {
-                        Some(value) => Some(Self::new_impl(value)),
+                        Some(value) => Some(Self {value}),
                         None => None,
                     }
                 }
@@ -603,13 +630,13 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn count_zeros(self) -> u32 {
                     // The upper bits are zero, so we can have to subtract them from the result
-                    let filler_bits = ((core::mem::size_of::<$type>() << 3) - Bits::USIZE) as u32;
+                    let filler_bits = ((core::mem::size_of::<$type>() << 3) - BITS) as u32;
                     self.value.count_zeros() - filler_bits
                 }
 
                 #[inline]
                 pub const fn div_euclid(self, rhs: Self) -> Self {
-                    Self::new_impl(self.value.div_euclid(rhs.value))
+                    Self {value: self.value.div_euclid(rhs.value)}
                 }
 
                 // TODO: div_ceil
@@ -619,98 +646,11 @@ macro_rules! aint_impl {
                     value.to_be()
                 }
 
-                #[cfg(not(feature="generic_const_exprs"))]
-                #[inline]
-                pub const fn from_be_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
-                    const { assert!(BYTES <= <Self as Number>::Bytes::USIZE); }
-
-                    let mut value: $type = 0;
-
-                    let mut bi = 0;
-                    while bi < BYTES {
-                        value |= (from[BYTES - 1 - bi] as $type) << (bi * 8);
-                        bi += 1;
-                    }
-                    Self::new_impl(value & Self::MASK)
-                }
-
-                #[cfg(feature="generic_const_exprs")]
-                #[inline]
-                pub const fn from_be_bytes(from: [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] ) -> Self {
-                    let mut value: $type = 0;
-                    let mut bi = 0;
-                    let num_bytes = <AInt::<$type, Bits> as Number>::Bytes::USIZE;
-
-                    while bi < num_bytes {
-                        value |= (from[num_bytes - 1 - bi] as $type) << (bi * 8);
-                        bi += 1;
-                    }
-                    Self::new_wrapping(value)
-                }
 
                 #[inline]
                 pub const fn from_le(value: Self) -> Self {
                     value.to_le()
                 }
-
-                #[cfg(not(feature="generic_const_exprs"))]
-                #[inline]
-                pub const fn from_le_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
-                    const { assert!(BYTES <= <Self as Number>::Bytes::USIZE); }
-
-                    let mut value: $type = 0;
-                    let mut bx = 0;
-
-                    while bx < BYTES {
-                        value |= (from[bx] as $type) << (bx * 8);
-                        bx += 1;
-                    }
-
-                    Self::new_wrapping(value)
-                }
-
-                #[cfg(feature="generic_const_exprs")]
-                #[inline]
-                pub const fn from_le_bytes(from: [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] ) -> Self {
-                    let mut value: $type = 0;
-
-                    let mut bx = 0;
-                    let num_bytes = <AInt::<$type, Bits> as Number>::Bytes::USIZE;
-
-                    while bx < num_bytes {
-                        value |= (from[bx] as $type) << (bx * 8);
-                        bx += 1;
-                    }
-
-                    Self::new_wrapping(value)
-                }
-
-                #[cfg(not(feature="generic_const_exprs"))]
-                #[inline]
-                pub const fn from_ne_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
-                    #[cfg(target_endian = "little")]
-                    {
-                        Self::from_le_bytes(from)
-                    }
-                    #[cfg(target_endian = "big")]
-                    {
-                        Self::from_be_bytes(from)
-                    }
-                }
-
-                #[cfg(feature="generic_const_exprs")]
-                #[inline]
-                pub const fn from_ne_bytes(from: [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] ) -> Self {
-                    #[cfg(target_endian = "little")]
-                    {
-                        Self::from_le_bytes(from)
-                    }
-                    #[cfg(target_endian = "big")]
-                    {
-                        Self::from_be_bytes(from)
-                    }
-                }
-
 
                 #[inline]
                 pub const fn from_str_radix(s: &str, radix: u32) -> Result<Self, ParseAIntError> {
@@ -722,25 +662,25 @@ macro_rules! aint_impl {
                     match value {
                         v if v < Self::MIN.value => Err(ParseAIntError{ kind: AIntErrorKind::NegOverflow }),
                         v if v > Self::MAX.value => Err(ParseAIntError{ kind: AIntErrorKind::PosOverflow }),
-                        v => Ok(Self::new_impl(v))
+                        v => Ok(Self {value: v})
                     }
                 }
 
                 #[inline]
                 pub const fn leading_ones(self) -> u32 {
-                    let shift = ((core::mem::size_of::<$type>() << 3) - Bits::USIZE) as u32;
+                    let shift = ((core::mem::size_of::<$type>() << 3) - BITS);
                     (self.value << shift).leading_ones()
                 }
 
                 #[inline]
                 pub const fn leading_zeros(self) -> u32 {
-                    let shift = ((core::mem::size_of::<$type>() << 3) - Bits::USIZE) as u32;
+                    let shift = ((core::mem::size_of::<$type>() << 3) - BITS);
                     (self.value << shift).leading_zeros()
                 }
 
                 #[inline]
                 pub const fn overflowing_add(self, rhs: Self) -> (Self, bool) {
-                    let (value, overflow) = if core::mem::size_of::<$type>() << 3 == Bits::USIZE {
+                    let (value, overflow) = if core::mem::size_of::<$type>() << 3 == BITS {
                         // We are something like a AInt::<u8; 8>. We can fallback to the base implementation
                         self.value.overflowing_add(rhs.value)
                     } else {
@@ -750,7 +690,7 @@ macro_rules! aint_impl {
                         let masked = sum & Self::MASK;
                         (masked, masked != sum)
                     };
-                    (Self::new_impl(value), overflow)
+                    (Self {value}, overflow)
                 }
 
                 // pub const fn overflowing_add_signed(self, rhs: Int<$type, ) -> (Self, bool) {
@@ -761,18 +701,18 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn overflowing_div(self, rhs: Self) -> (Self, bool) {
                     let value = self.value.wrapping_div(rhs.value);
-                    (Self::new_impl(value), false)
+                    (Self {value}, false)
                 }
 
                 #[inline]
                 pub const fn overflowing_div_euclid(self, rhs: Self) -> (Self, bool) {
                     let value = self.value.wrapping_div_euclid(rhs.value);
-                    (Self::new_impl(value), false)
+                    (Self {value}, false)
                 }
 
                 #[inline]
                 pub const fn overflowing_mul(self, rhs: Self) -> (Self, bool) {
-                    let (wrapping_product, overflow) = if (Bits::USIZE) << 1 <= (core::mem::size_of::<$type>() << 3) {
+                    let (wrapping_product, overflow) = if (BITS) << 1 <= (core::mem::size_of::<$type>() << 3) {
                         // We have half the bits (e.g. u4 * u4) of the base type, so we can't overflow the base type
                         // wrapping_mul likely provides the best performance on all cpus
                         self.value.overflowing_mul(rhs.value)
@@ -783,7 +723,7 @@ macro_rules! aint_impl {
 
                     let masked = wrapping_product & Self::MASK;
                     let overflow2 = masked != wrapping_product;
-                    (Self::new_impl(masked), overflow || overflow2)
+                    (Self {value: masked}, overflow || overflow2)
                 }
 
                 #[inline]
@@ -791,10 +731,10 @@ macro_rules! aint_impl {
                     let (negated, overflow) = self.value.overflowing_neg();
                     let value = negated & Self::MASK;
 
-                    let min = 1 << (Bits::USIZE - 1);
+                    let min = 1 << (BITS - 1);
                     let is_overflow = self.value == min || overflow;
 
-                    (Self::new_impl(value), is_overflow)
+                    (Self {value}, is_overflow)
                 }
 
                 #[inline]
@@ -804,33 +744,34 @@ macro_rules! aint_impl {
                     let overflowed = overflow || powed > Self::MAX.value;
                     let value = powed & Self::MASK;
 
-                    (Self::new_impl(value), overflowed)
+                    (Self {value}, overflowed)
                 }
 
                 #[inline]
                 pub const fn overflowing_rem(self, rhs: Self) -> (Self, bool) {
                     let (value, overflow) = self.value.overflowing_rem(rhs.value);
-                    (Self::new_impl(value), overflow)
+                    (Self {value}, overflow)
                 }
 
                 #[inline]
                 pub const fn overflowing_rem_euclid(self, rhs: Self) -> (Self, bool) {
                     let (value, overflow) = self.value.overflowing_rem_euclid(rhs.value);
-                    (Self::new_impl(value), overflow)
+                    (Self {value}, overflow)
                 }
 
                 #[inline]
                 pub const fn overflowing_shl(self, rhs: u32) -> (Self, bool) {
-                    if rhs >= Bits::U32 {
+                    let bits = BITS as u32;
+                    if rhs >= bits {
                         (
-                            Self::new_impl(
-                                self.value << (rhs % Bits::U32),
-                            ),
+                            Self {
+                                value: self.value << (rhs % bits),
+                            },
                             true,
                         )
                     } else {
                         (
-                            Self::new_impl(self.value << rhs),
+                            Self {value: self.value << rhs},
                             false,
                         )
                     }
@@ -838,16 +779,17 @@ macro_rules! aint_impl {
 
                 #[inline]
                 pub const fn overflowing_shr(self, rhs: u32) -> (Self, bool) {
-                    if rhs >= Bits::U32 {
+                    let bits = BITS as u32;
+                    if rhs >= bits {
                         (
-                            Self::new_impl(
-                                self.value >> (rhs % Bits::U32),
-                            ),
+                            Self {
+                                value: self.value >> (rhs % bits),
+                            },
                             true,
                         )
                     } else {
                         (
-                            Self::new_impl(self.value >> rhs),
+                            Self {value: self.value >> rhs },
                             false,
                         )
                     }
@@ -859,7 +801,7 @@ macro_rules! aint_impl {
                     // no matter the data size. In the case of overflow we do have the mask the result though
                     let (value, overflow) = self.value.overflowing_sub(rhs.value);
                     (
-                        Self::new_impl(value & Self::MASK),
+                        Self::new_wrapping(value),
                         overflow,
                     )
                 }
@@ -872,44 +814,44 @@ macro_rules! aint_impl {
                         panic!("attempt to pow with overflow");
                     }
 
-                    Self::new_impl(powed)
+                    Self {value:powed}
                 }
 
                 #[inline]
                 pub const fn rem_euclid(self, rhs: Self) -> Self {
-                    Self::new_impl(self.value.rem_euclid(rhs.value))
+                    Self {value: self.value.rem_euclid(rhs.value)}
                 }
 
                 #[inline]
                 pub const fn reverse_bits(self) -> Self {
-                    let shift_right = (core::mem::size_of::<$type>() << 3) - (Bits::USIZE);
-                    Self::new_impl(self.value.reverse_bits() >> shift_right)
+                    let shift_right = (core::mem::size_of::<$type>() << 3) - (BITS);
+                    Self {value: self.value.reverse_bits() >> shift_right}
                 }
 
                 #[inline]
                 pub const fn rotate_left(self, n: u32) -> Self {
-                    let b = Bits::U32;
+                    let b = Self::BITS;
                     let n = if n >= b { n % b } else { n };
 
                     let moved_bits = (self.value << n) & Self::MASK;
                     let truncated_bits = self.value >> (b - n);
-                    Self::new_impl(moved_bits | truncated_bits)
+                    Self { value: moved_bits | truncated_bits}
 
                 }
 
                 #[inline]
                 pub const fn rotate_right(self, n: u32) -> Self {
-                    let b = Bits::U32;
+                    let b = Self::BITS;
                     let n = if n >= b { n % b } else { n };
 
                     let moved_bits = self.value >> n;
                     let truncated_bits = (self.value << (b - n)) & Self::MASK;
-                    Self::new_impl(moved_bits | truncated_bits)
+                    Self { value: moved_bits | truncated_bits }
                 }
 
                 #[inline]
                 pub const fn saturating_add(self, rhs: Self) -> Self {
-                    let saturated = if core::mem::size_of::<$type>() << 3 == (Bits::USIZE) {
+                    let saturated = if (core::mem::size_of::<$type>() << 3) == BITS {
                         // We are something like a AInt::<u8; 8>. We can fallback to the base implementation
                         self.value.saturating_add(rhs.value)
                     } else {
@@ -923,7 +865,7 @@ macro_rules! aint_impl {
                             sum
                         }
                     };
-                    Self::new_impl(saturated)
+                    Self {value: saturated}
                 }
 
                 #[inline]
@@ -931,12 +873,12 @@ macro_rules! aint_impl {
                     // When dividing unsigned numbers, we never need to saturate.
                     // Divison by zero in saturating_div throws an exception (in debug and release mode),
                     // so no need to do anything special there either
-                    Self::new_impl(self.value.saturating_div(rhs.value))
+                    Self {value: self.value.saturating_div(rhs.value)}
                 }
 
                 #[inline]
                 pub const fn saturating_mul(self, rhs: Self) -> Self {
-                    let product = if (Bits::USIZE) << 1 <= (core::mem::size_of::<$type>() << 3) {
+                    let product = if BITS << 1 <= (core::mem::size_of::<$type>() << 3) {
                         // We have half the bits (e.g. u4 * u4) of the base type, so we can't overflow the base type
                         // wrapping_mul likely provides the best performance on all cpus
                         self.value.wrapping_mul(rhs.value)
@@ -947,7 +889,7 @@ macro_rules! aint_impl {
 
                     let max = Self::MAX.value;
                     let saturated = if product > max { max } else { product };
-                    Self::new_impl(saturated)
+                    Self {value: saturated}
                 }
 
                 #[inline]
@@ -957,21 +899,21 @@ macro_rules! aint_impl {
                     let powed = self.value.saturating_pow(exp);
                     let max = Self::MAX.value;
                     let saturated = if powed > max { max } else { powed };
-                    Self::new_impl(saturated)
+                    Self {value: saturated}
                 }
 
                 #[inline]
                 pub const fn saturating_sub(self, rhs: Self) -> Self {
                     // For unsigned numbers, the only difference is when we reach 0 - which is the same
                     // no matter the data size
-                    Self::new_impl(self.value.saturating_sub(rhs.value))
+                    Self {value: self.value.saturating_sub(rhs.value)}
                 }
 
                 #[inline]
                 pub const fn swap_bytes(self) -> Self {
                     // swap_bytes() of the underlying type does most of the work. Then, we just need to shift
-                    let amount: usize = (core::mem::size_of::<$type>() << 3) - (Bits::USIZE);
-                    Self::new_impl(self.value.swap_bytes() >> amount)
+                    let amount = (core::mem::size_of::<$type>() << 3) - BITS;
+                    Self {value: self.value.swap_bytes() >> amount}
                 }
 
                 #[inline]
@@ -986,40 +928,6 @@ macro_rules! aint_impl {
                     }
                 }
 
-                // Combining this new const generic with a compile time assert is a bit
-                // weird, but since we can't have associated types based on generics
-                // this is the best I could come up with
-                // The alternative is to implement this for every single bit size which would be extremely slow
-                #[cfg(not(feature="generic_const_exprs"))]
-                #[inline]
-                pub const fn to_be_bytes<const BYTES: usize>(self) -> [u8; BYTES] {
-                    const { assert!(BYTES <= <Self as Number>::Bytes::USIZE); }
-
-                    let mut ret = [0; BYTES];
-
-                    let mut bi = 0;
-                    while bi < BYTES {
-                        ret[BYTES - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
-                        bi += 1;
-                    }
-                    ret
-                }
-
-                #[cfg(feature="generic_const_exprs")]
-                #[inline]
-                pub const fn to_be_bytes(self) -> [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] {
-                    let mut ret = [0; <AInt::<$type, Bits> as Number>::Bytes::USIZE];
-
-                    let mut bi = 0;
-                    let num_bytes = <AInt::<$type, Bits> as Number>::Bytes::USIZE;
-                    while bi < num_bytes {
-                        ret[num_bytes - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
-                        bi += 1;
-                    }
-                    ret
-                }
-
-
                 #[inline]
                 pub const fn to_le(self) -> Self {
                     #[cfg(target_endian = "little")]
@@ -1029,60 +937,6 @@ macro_rules! aint_impl {
                     #[cfg(target_endian = "big")]
                     {
                         self.swap_bytes()
-                    }
-                }
-
-                #[cfg(not(feature="generic_const_exprs"))]
-                #[inline]
-                pub const fn to_le_bytes<const BYTES: usize>(self) -> [u8; BYTES] {
-                    const { assert!(BYTES <= <Self as Number>::Bytes::USIZE); }
-
-                    let mut ret = [0; BYTES];
-
-                    let mut bi = 0;
-                    while bi < BYTES {
-                        ret[bi] = (self.value >> (bi * 8)) as u8;
-                        bi += 1;
-                    }
-                    ret
-                }
-
-                #[cfg(feature="generic_const_exprs")]
-                #[inline]
-                pub const fn to_le_bytes(self) -> [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] {
-                    let mut ret = [0; <AInt::<$type, Bits> as Number>::Bytes::USIZE];
-
-                    let mut bi = 0;
-                    while bi < (<AInt::<$type, Bits> as Number>::Bytes::USIZE) {
-                        ret[bi] = (self.value >> (bi * 8)) as u8;
-                        bi += 1;
-                    }
-                    ret
-                }
-
-                #[cfg(not(feature="generic_const_exprs"))]
-                #[inline]
-                pub const fn to_ne_bytes<const BYTES: usize>(self) -> [u8; BYTES] {
-                    #[cfg(target_endian = "little")]
-                    {
-                        self.to_le_bytes()
-                    }
-                    #[cfg(target_endian = "big")]
-                    {
-                        self.to_be_bytes()
-                    }
-                }
-
-                #[cfg(feature="generic_const_exprs")]
-                #[inline]
-                pub const fn to_ne_bytes(self) -> [u8; <AInt::<$type, Bits> as Number>::Bytes::USIZE] {
-                    #[cfg(target_endian = "little")]
-                    {
-                        self.to_le_bytes()
-                    }
-                    #[cfg(target_endian = "big")]
-                    {
-                        self.to_be_bytes()
                     }
                 }
 
@@ -1099,87 +953,92 @@ macro_rules! aint_impl {
                 #[inline]
                 pub const fn wrapping_add(self, rhs: Self) -> Self {
                     let sum = self.value.wrapping_add(rhs.value);
-                    Self::new_impl(sum & Self::MASK)
+                    Self::new_wrapping(sum)
                 }
 
                 #[inline]
                 pub const fn wrapping_div(self, rhs: Self) -> Self {
-                    Self::new_impl(
+                    Self {
                         // No need to mask here - divisions always produce a result that is <= self
-                        self.value.wrapping_div(rhs.value))
+                        value: self.value.wrapping_div(rhs.value)
+                    }
                 }
 
                 #[inline]
                 pub const fn wrapping_div_euclid(self, rhs: Self) -> Self {
-                    Self::new_impl(
+                    Self {
                         // No need to mask here - divisions always produce a result that is <= self
-                        self.value.wrapping_div_euclid(rhs.value))
+                        value: self.value.wrapping_div_euclid(rhs.value)
+                    }
                 }
 
                 #[inline]
                 pub const fn wrapping_mul(self, rhs: Self) -> Self {
                     let value = self.value.wrapping_mul(rhs.value);
-                    Self::new_impl(value & Self::MASK)
+                    Self::new_wrapping(value)
                 }
 
                 #[inline]
                 pub const fn wrapping_neg(self) -> Self {
                     // TODO: verify this!
                     let max = Self::MAX.value;
-                    Self::new_impl(max + 1 - (self.value - max - 1))
+
+                    Self {value: max + 1 - (self.value - max - 1)}
                 }
 
                 #[inline]
                 pub const fn wrapping_pow(self, exp: u32) -> Self {
                     // TODO: verify this!
                     let value = self.value.wrapping_pow(exp);
-                    Self::new_impl(value & Self::MASK)
+                    Self::new_wrapping(value)
                 }
 
                 #[inline]
                 pub const fn wrapping_rem(self, rhs: Self) -> Self {
-                    Self::new_impl(self.value.wrapping_rem(rhs.value))
+                    Self {value: self.value.wrapping_rem(rhs.value)}
                 }
 
                 #[inline]
                 pub const fn wrapping_rem_euclid(self, rhs: Self) -> Self {
-                    Self::new_impl(self.value.wrapping_rem_euclid(rhs.value))
+                    Self {value: self.value.wrapping_rem_euclid(rhs.value)}
                 }
 
                 #[inline]
                 pub const fn wrapping_shl(self, rhs: u32) -> Self {
                     // modulo is expensive on some platforms, so only do it when necessary
-                    let shift_amount = if rhs >= Bits::U32 {
-                        rhs % Bits::U32
+                    let bits = BITS as u32;
+                    let shift_amount = if rhs >= bits {
+                        rhs % bits
                     } else {
                         rhs
                     };
 
-                    Self::new_impl(
+                    Self {
                         // We could use wrapping_shl here to make Debug builds slightly smaller;
                         // the downside would be that on weird CPUs that don't do wrapping_shl by
                         // default release builds would get slightly worse. Using << should give
                         // good release performance everywere
-                        (self.value << (shift_amount as usize)) & Self::MASK
-                    )
+                        value: (self.value << shift_amount) & Self::MASK
+                    }
                 }
 
                 #[inline]
                 pub const fn wrapping_shr(self, rhs: u32) -> Self {
                     // modulo is expensive on some platforms, so only do it when necessary
-                    let shift_amount = if rhs >= Bits::U32 {
-                        rhs % Bits::U32
+                    let bits = BITS as u32;
+                    let shift_amount = if rhs >= bits {
+                        rhs % bits
                     } else {
                         rhs
                     };
 
-                    Self::new_impl(self.value >> (shift_amount as usize))
+                    Self {value: self.value >> (shift_amount)}
                 }
 
                 #[inline]
                 pub const fn wrapping_sub(self, rhs: Self) -> Self {
                     let sum = self.value.wrapping_sub(rhs.value);
-                    Self::new_impl(sum & Self::MASK)
+                    Self::new_wrapping(sum)
                 }
 
 
@@ -1189,14 +1048,189 @@ macro_rules! aint_impl {
             //     }
 
             }
+
+            #[cfg(not(feature="generic_const_exprs"))]
+            impl<const BITS: usize> AInt<$type, BITS>
+            where
+                $type: AIntContainer + Debug,
+                ConstBounded<BITS, 1, { <$type>::BITS as usize }>: Sized
+            {
+                #[inline]
+                pub const fn from_be_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self
+                {
+                    const { assert!(BYTES <= <Self as Number>::BYTES as usize); }
+
+                    let mut value: $type = 0;
+
+                    let mut bi = 0;
+                    while bi < BYTES {
+                        value |= (from[BYTES - 1 - bi] as $type) << (bi * 8);
+                        bi += 1;
+                    }
+                    Self {value: value & Self::MASK}
+                }
+
+                #[inline]
+                pub const fn from_le_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
+                    const { assert!(BYTES as u32 <= <Self as Number>::BYTES); }
+
+                    let mut value: $type = 0;
+                    let mut bx = 0;
+
+                    while bx < BYTES {
+                        value |= (from[bx] as $type) << (bx * 8);
+                        bx += 1;
+                    }
+
+                    Self::new_wrapping(value)
+                }
+
+                #[inline]
+                pub const fn from_ne_bytes<const BYTES: usize>(from: [u8; BYTES] ) -> Self {
+                    #[cfg(target_endian = "little")]
+                    {
+                        Self::from_le_bytes(from)
+                    }
+                    #[cfg(target_endian = "big")]
+                    {
+                        Self::from_be_bytes(from)
+                    }
+                }
+
+                // Combining this new const generic with a compile time assert is a bit
+                // weird, but since we can't have associated types based on generics
+                // this is the best I could come up with
+                // The alternative is to implement this for every single bit size which would be extremely slow
+                #[inline]
+                pub const fn to_be_bytes<const BYTES: usize>(self) -> [u8; BYTES] {
+                    const { assert!(BYTES <= Self::BYTES as usize) };
+
+                    let mut ret = [0; BYTES];
+
+                    let mut bi = 0;
+                    while bi < BYTES {
+                        ret[BYTES - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
+                        bi += 1;
+                    }
+                    ret
+                }
+
+                #[inline]
+                pub const fn to_le_bytes<const BYTES: usize>(self) -> [u8; BYTES] {
+                    const { assert!(BYTES <= <Self as Number>::BYTES as usize); }
+
+                    let mut ret = [0; BYTES];
+
+                    let mut bi = 0;
+                    while bi < BYTES {
+                        ret[bi] = (self.value >> (bi * 8)) as u8;
+                        bi += 1;
+                    }
+                    ret
+                }
+
+                #[inline]
+                pub const fn to_ne_bytes<const BYTES: usize>(self) -> [u8; BYTES] {
+                    #[cfg(target_endian = "little")]
+                    {
+                        self.to_le_bytes()
+                    }
+                    #[cfg(target_endian = "big")]
+                    {
+                        self.to_be_bytes()
+                    }
+                }
+            }
+
+            #[cfg(feature="generic_const_exprs")]
+            impl<const BITS: usize> AInt<$type, BITS>
+            where
+                $type: AIntContainer + Debug,
+                ConstBounded<BITS, 1, { <$type>::BITS as usize }>: Sized
+            {
+
+                #[inline]
+                pub const fn from_be_bytes(from: [u8; <AInt::<$type, BITS> as Number>::BYTES as usize] ) -> Self {
+                    let mut value: $type = 0;
+                    let mut bi = 0;
+                    let num_bytes = Self::BYTES as usize;
+
+                    while bi < num_bytes {
+                        value |= (from[num_bytes - 1 - bi] as $type) << (bi * 8);
+                        bi += 1;
+                    }
+                    Self::new_wrapping(value)
+                }
+
+
+                #[inline]
+                pub const fn from_le_bytes(from: [u8; <AInt::<$type, BITS> as Number>::BYTES as usize] ) -> Self {
+                    let mut value: $type = 0;
+
+                    let mut bx = 0;
+                    let num_bytes = Self::BYTES as usize;
+
+                    while bx < num_bytes {
+                        value |= (from[bx] as $type) << (bx * 8);
+                        bx += 1;
+                    }
+
+                    Self::new_wrapping(value)
+                }
+
+                #[inline]
+                pub const fn from_ne_bytes(from: [u8; <AInt::<$type, BITS> as Number>::BYTES as usize] ) -> Self {
+                    #[cfg(target_endian = "little")]
+                    {
+                        Self::from_le_bytes(from)
+                    }
+                    #[cfg(target_endian = "big")]
+                    {
+                        Self::from_be_bytes(from)
+                    }
+                }
+
+
+                #[inline]
+                pub const fn to_be_bytes(self) -> [u8; <Self as Number>::BYTES as usize] {
+                    let mut ret = [0; <AInt::<$type, BITS> as Number>::BYTES as usize];
+
+                    let mut bi = 0;
+                    let num_bytes = <AInt::<$type, BITS> as Number>::BYTES as usize;
+                    while bi < num_bytes {
+                        ret[num_bytes - 1 - bi] = ((self.value >> (bi * 8)) as u8 & 0xFF) as u8;
+                        bi += 1;
+                    }
+                    ret
+                }
+
+                #[inline]
+                pub const fn to_le_bytes(self) -> [u8; <AInt::<$type, BITS> as Number>::BYTES as usize] {
+                    let mut ret = [0; Self::BYTES as usize];
+
+                    let mut bi = 0;
+                    while bi < (Self::BYTES as usize) {
+                        ret[bi] = (self.value >> (bi * 8)) as u8;
+                        bi += 1;
+                    }
+                    ret
+                }
+
+                #[inline]
+                pub const fn to_ne_bytes(self) -> [u8; <AInt::<$type, BITS> as Number>::BYTES as usize] {
+                    #[cfg(target_endian = "little")]
+                    {
+                        self.to_le_bytes()
+                    }
+                    #[cfg(target_endian = "big")]
+                    {
+                        self.to_be_bytes()
+                    }
+                }
+            }
         )+
     }
 }
 
 aint_impl!(u8, u16, u32, u64, u128);
 aint_impl!(i8, i16, i32, i64, i128);
-
-
-
-
-

@@ -1,20 +1,14 @@
 use std::collections::BTreeMap;
 
-use crate::Number;
-use crate::traits::{BitsSpec, AIntContainer};
-use crate::AInt;
+use crate::{AInt, AIntContainer, Number};
 
-impl<T, Bits> borsh::BorshSerialize for AInt<T, Bits>
+impl<T, const BITS: usize> borsh::BorshSerialize for AInt<T, BITS>
 where
-    Self: Number<Container = T, Bits = Bits>,
-    T: AIntContainer +  borsh::BorshSerialize,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+    Self: Number<Container = T>,
+    T: AIntContainer + borsh::BorshSerialize,
 {
     fn serialize<W: borsh::io::Write>(&self, writer: &mut W) -> borsh::io::Result<()> {
-        use typenum::Unsigned;
-
-        let serialized_byte_count = <Self as Number>::Bytes::USIZE;
+        let serialized_byte_count = <Self as Number>::BYTES as usize;
         let mut buffer = [0u8; 16];
         self.value.serialize(&mut &mut buffer[..])?;
         writer.write(&buffer[0..serialized_byte_count])?;
@@ -23,20 +17,17 @@ where
     }
 }
 
-impl<T, Bits> borsh::BorshDeserialize for AInt<T, Bits>
+impl<T, const BITS: usize> borsh::BorshDeserialize for AInt<T, BITS>
 where
-    Self: Number<Container = T, Bits = Bits>,
-    T: AIntContainer +  borsh::BorshDeserialize + PartialOrd<T>,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+    Self: Number<Container = T>,
+    T: AIntContainer + borsh::BorshDeserialize + PartialOrd<T>,
 {
     fn deserialize_reader<R: borsh::io::Read>(reader: &mut R) -> borsh::io::Result<Self> {
-        use typenum::Unsigned;
         // Ideally, we'd want a buffer of size `BITS >> 3` or `size_of::<T>`, but that's not possible
         // with arrays at present (feature(generic_const_exprs), once stable, will allow this).
         // vec! would be an option, but an allocation is not expected at this level.
         // Therefore, allocate a 16 byte buffer and take a slice out of it.
-        let serialized_byte_count = <Self as Number>::Bytes::USIZE;
+        let serialized_byte_count = <Self as Number>::BYTES as usize;
         let underlying_byte_count = core::mem::size_of::<T>();
         let mut buf = [0u8; 16];
 
@@ -52,31 +43,27 @@ where
             Err(err) => Err(borsh::io::Error::new(
                 borsh::io::ErrorKind::InvalidData,
                 err.to_string(),
-            ))
+            )),
         }
     }
 }
 
-impl<T, Bits> borsh::BorshSchema for AInt<T, Bits>
+impl<T, const BITS: usize> borsh::BorshSchema for AInt<T, BITS>
 where
-Self: Number<Container = T, Bits = Bits>,
-T: AIntContainer,
-Bits: BitsSpec,
-<T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+    Self: Number<Container = T>,
+    T: AIntContainer,
 {
     fn add_definitions_recursively(
         definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,
     ) {
-        use typenum::Unsigned;
-
         definitions.insert(
-            [if Self::SIGNED { "i" } else { "u" }, &Bits::U8.to_string()].concat(),
-            borsh::schema::Definition::Primitive(<Self as Number>::Bytes::U8),
+            [if Self::SIGNED { "i" } else { "u" }, stringify!(BITS as u8)].concat(),
+            borsh::schema::Definition::Primitive(Self::BYTES as u8),
         );
     }
 
     fn declaration() -> borsh::schema::Declaration {
-        [if Self::SIGNED { "i" } else { "u" }, &Bits::U8.to_string()].concat()
+        [if Self::SIGNED { "i" } else { "u" }, stringify!(BITS as u8)].concat()
     }
 }
 
@@ -153,7 +140,7 @@ mod tests {
             ],
         );
         test_roundtrip(
-            AInt::<u128, typenum::U128>::MAX,
+            AInt::<u128, 128>::MAX,
             &[
                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                 0xFF, 0xFF,
@@ -177,13 +164,13 @@ mod tests {
 
         verify_byte_count_in_schema::<u7>(1, "u7");
 
-        verify_byte_count_in_schema::<AInt<u8, typenum::U8>>(1, "u8");
-        verify_byte_count_in_schema::<AInt<u32, typenum::U8>>(1, "u8");
+        verify_byte_count_in_schema::<AInt<u8, 8>>(1, "u8");
+        verify_byte_count_in_schema::<AInt<u32, 8>>(1, "u8");
 
         verify_byte_count_in_schema::<u9>(2, "u9");
 
         verify_byte_count_in_schema::<u15>(2, "u15");
-        verify_byte_count_in_schema::<AInt<u128, typenum::U15>>(2, "u15");
+        verify_byte_count_in_schema::<AInt<u128, 15>>(2, "u15");
 
         verify_byte_count_in_schema::<u63>(8, "u63");
 

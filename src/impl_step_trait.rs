@@ -1,14 +1,11 @@
 use core::iter::Step;
 
-use crate::traits::BitsSpec;
 use crate::{AInt, Number, AIntContainer};
 
-impl<T, Bits> Step for AInt<T, Bits>
+impl<T, const BITS: usize> Step for AInt<T, BITS>
 where
-    Self: Number<Container = T, Bits = Bits>,
+    Self: Number<Container = T>,
     T: AIntContainer + Step,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     #[inline]
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
@@ -50,12 +47,10 @@ mod tests {
         compare_range(u48::new(999_444), u48::new(1_005_000));
         compare_range(u99::new(12345), u99::new(54321));
 
-        fn compare_range<T, Bits>(arb_start: AInt<T, Bits>, arb_end: AInt<T, Bits>)
+        fn compare_range<T, const BITS: usize>(arb_start: AInt<T, BITS>, arb_end: AInt<T, BITS>)
         where
-            Bits: BitsSpec,
-            AInt<T, Bits>: Step + Number<Container = T, Bits=Bits>,
+            AInt<T, BITS>: Step + Number<Container = T>,
             T: AIntContainer + Copy + Step,
-            <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>,
         {
             let arbint_range = (arb_start..=arb_end).map(AInt::value);
             let underlying_range = arb_start.value()..=arb_end.value();

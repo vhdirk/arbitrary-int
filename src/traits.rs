@@ -1,75 +1,9 @@
-use crate::error::TryNewError;
+use crate::{bits, error::TryNewError, AIntContainer};
 use core::fmt;
 use std::error::Error;
-use std::ops::{Add, Div};
+use core::ops::{Add, Shr};
+use crate::bits::{ConstMin, ConstMax, ConstBounded};
 
-pub trait BitsSpec:
-    typenum::Unsigned
-    + typenum::Cmp<Self>
-    + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
-    + typenum::IsLessOrEqual<typenum::U128, Output = typenum::True>
-    + PartialEq<Self>
-    + PartialOrd<Self>
-{
-}
-
-impl<T> BitsSpec for T where
-    T: typenum::Unsigned
-        + typenum::Cmp<Self>
-        + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
-        + typenum::IsLessOrEqual<typenum::U128, Output = typenum::True>
-        + PartialEq<T>
-        + PartialOrd<T>
-{
-}
-
-pub trait BytesSpec:
-    typenum::Unsigned
-    + typenum::Cmp<Self>
-    + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
-    + typenum::IsLessOrEqual<typenum::U16, Output = typenum::True>
-    + PartialEq<Self>
-    + PartialOrd<Self>
-{
-}
-
-impl<T> BytesSpec for T where
-    T: typenum::Unsigned
-        + typenum::Cmp<Self>
-        + typenum::IsGreaterOrEqual<typenum::U1, Output = typenum::True>
-        + typenum::IsLessOrEqual<typenum::U16, Output = typenum::True>
-        + PartialEq<T>
-        + PartialOrd<T>
-{
-}
-
-pub trait AIntContainer:
-    Sized + fmt::Debug + Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Default
-{
-    type Bits: BitsSpec;
-}
-
-macro_rules! impl_container {
-    ($( $type:ty, $bits:ty ),+) => {
-        $(
-            impl AIntContainer for $type {
-                type Bits = $bits;
-            }
-        )+
-    };
-}
-
-impl_container!(u8, typenum::U8);
-impl_container!(u16, typenum::U16);
-impl_container!(u32, typenum::U32);
-impl_container!(u64, typenum::U64);
-impl_container!(u128, typenum::U128);
-
-impl_container!(i8, typenum::U8);
-impl_container!(i16, typenum::U16);
-impl_container!(i32, typenum::U32);
-impl_container!(i64, typenum::U64);
-impl_container!(i128, typenum::U128);
 
 pub trait UnsignedNumberType:
     AIntContainer + From<u8> + TryFrom<u16> + TryFrom<u32> + TryFrom<u64> + TryFrom<u128>
@@ -96,15 +30,16 @@ where
     Self: Sized,
 {
     type Container: AIntContainer;
-    type Bits: BitsSpec;
-    type Bytes: BytesSpec;
 
     type SignedEquivalent: Number + Signed;
     type UnsignedEquivalent: Number + Unsigned;
 
     type TryNewError: Error;
 
-    const BITS: u32 = <Self::Bits as typenum::Unsigned>::U32;
+    // type Bits: bits::Bits;
+
+    const BITS: u32;
+    const BYTES: u32;
 
     const MIN: Self;
     const MAX: Self;
@@ -142,12 +77,15 @@ macro_rules! impl_native {
         $(
             impl Number for $type {
                 type Container = $type;
-                type Bits = <$type as AIntContainer>::Bits;
-                type Bytes = <<$type as AIntContainer>::Bits as Div<typenum::U8>>::Output;
+
                 type TryNewError = TryNewError;
 
+                // type Bits = bits::B<{<$type>::BITS as usize}>;
                 type SignedEquivalent = $signed;
                 type UnsignedEquivalent = $unsigned;
+
+                const BITS: u32 = <$type>::BITS;
+                const BYTES: u32 = <$type>::BITS >> 3;
 
                 const MIN: Self = <$type>::MIN;
                 const MAX: Self = <$type>::MAX;
@@ -156,11 +94,9 @@ macro_rules! impl_native {
                 const ONE: $type = 1;
 
                 #[allow(unused_comparisons)]
-                const SIGNED: bool = <$type>::MIN  < 0;
+                const SIGNED: bool = <$type>::MIN < 0;
 
-                #[allow(unused_comparisons)]
-                const MASK: $type = if <$type>::MIN  < 0 { Self::ZERO - 1 } else { Self::MAX };
-
+                const MASK: $type = !((!0 as $type << (<$type>::BITS -1) ) << 1);
 
                 #[inline]
                 fn new(value: Self::Container) -> Self {
@@ -203,6 +139,24 @@ macro_rules! impl_native {
                     self as $unsigned
                 }
             }
+
+
+
+            impl<const MIN_BITS: usize> ConstMin<{<$type>::BITS as usize}, MIN_BITS> for $type
+            where
+                ConstBounded<{<$type>::BITS as usize}, MIN_BITS, 128>: Sized,
+            {
+
+            }
+
+
+            impl<const MAX_BITS: usize> ConstMax<{<$type>::BITS as usize}, MAX_BITS> for $type
+            where
+                ConstBounded<{<$type>::BITS as usize}, 1, MAX_BITS>: Sized,
+            {
+
+            }
+
         )+
     };
 }

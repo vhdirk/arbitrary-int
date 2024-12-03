@@ -20,11 +20,18 @@ std = ["num-traits?/std", "serde?/std", "funty?/std"]
 signed = []
 
 # core::fmt::Step is currently unstable and is available on nightly behind a feature gate
-step_trait = []
-
 # generic const expressions are incomplete and only available on nightly
 # this signigicantly reduces compile times
+
 generic_const_exprs = []
+inherent_associated_types = []
+step_trait = []
+
+nightly = [
+    "generic_const_exprs",
+    "inherent_associated_types",
+    "step_trait",
+]
 
 # TODO: some dependencies require the 'alloc' feature to be enabled when targeting no_std
 
@@ -39,7 +46,7 @@ schemars = { version = "0.8.21", optional = true, features = ["derive"], default
 forward_ref_generic = "0.2.1"
 seq-macro = "0.3.5"
 paste = "1.0.15"
-typenum = "1.17.0"
+const_panic = "0.2.10"
 
 [dev-dependencies]
 serde_test = "1.0"

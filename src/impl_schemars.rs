@@ -1,18 +1,16 @@
 use schemars::JsonSchema;
 
-use crate::{traits::BitsSpec, Number};
+use crate::{Number};
 use core::fmt::Debug;
 use super::{AInt, AIntContainer};
 
-impl<T, Bits> JsonSchema for AInt<T, Bits>
+impl<T, const BITS: usize> JsonSchema for AInt<T, BITS>
 where
-    Self: Number<Container = T, Bits = Bits>,
+    Self: Number<Container = T>,
     T: AIntContainer + TryInto<f64>,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     fn schema_name() -> String {
-        [if Self::SIGNED { "int" } else { "uint" }, &Bits::U8.to_string()].concat()
+        [if Self::SIGNED { "int" } else { "uint" }, stringify!(BITS as u8)].concat()
     }
 
     fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {

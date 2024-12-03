@@ -1,30 +1,25 @@
-use std::fmt::Display;
+use core::fmt::Display;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::Number;
-use crate::traits::BitsSpec;
 
 use super::{AInt, AIntContainer};
 
-impl<T, Bits> Serialize for AInt<T, Bits>
+impl<T, const BITS: usize> Serialize for AInt<T, BITS>
 where
-    Self: Number<Container = T, Bits = Bits>,
+    Self: Number<Container = T>,
     T: AIntContainer + Serialize,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.value.serialize(serializer)
     }
 }
 
-impl<'de, T: Display, Bits> Deserialize<'de> for AInt<T, Bits>
+impl<'de, T: Display, const BITS: usize> Deserialize<'de> for AInt<T, BITS>
 where
-    Self: Number<Container = T, Bits = Bits>,
+    Self: Number<Container = T>,
     T: AIntContainer + Deserialize<'de> + PartialOrd,
-    Bits: BitsSpec,
-    <T as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
 {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let value = T::deserialize(deserializer)?;

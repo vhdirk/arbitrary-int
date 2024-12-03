@@ -1,17 +1,17 @@
 use core::ops::{Add, Mul, Shl, Shr, Neg};
 
 use crate::error::ParseAIntError;
-use crate::traits::{BitsSpec, AIntContainer, Unsigned, Signed};
+use crate::traits::{Unsigned, Signed};
 use crate::{AInt, Number};
 
 macro_rules! aint_impl_num_traits {
     ($( $type:ty),+) => {
         $(
-            impl<Bits> num_traits::Zero for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Zero for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits> + PartialEq<Self>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type> + PartialEq<Self>,
+
             {
                 #[inline]
                 fn zero() -> Self {
@@ -28,11 +28,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::One for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::One for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn one() -> Self {
@@ -40,11 +40,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::Bounded for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Bounded for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn min_value() -> Self {
@@ -57,11 +57,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::Euclid for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Euclid for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn div_euclid(&self, rhs: &Self) -> Self {
@@ -74,11 +74,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::MulAdd for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::MulAdd for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 type Output = Self;
 
@@ -87,11 +87,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedAdd for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedAdd for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_add(&self, rhs: &Self) -> Option<Self> {
@@ -99,11 +99,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedSub for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedSub for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_sub(&self, rhs: &Self) -> Option<Self> {
@@ -111,11 +111,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedDiv for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedDiv for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_div(&self, rhs: &Self) -> Option<Self> {
@@ -123,11 +123,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedMul for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedMul for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_mul(&self, rhs: &Self) -> Option<Self> {
@@ -135,11 +135,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedNeg for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedNeg for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_neg(&self) -> Option<Self> {
@@ -148,11 +148,11 @@ macro_rules! aint_impl_num_traits {
             }
 
 
-            impl<Bits> num_traits::CheckedRem for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedRem for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_rem(&self, rhs: &Self) -> Option<Self> {
@@ -160,11 +160,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedShl for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedShl for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_shl(&self, n: u32) -> Option<Self> {
@@ -172,11 +172,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedShr for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedShr for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_shr(&self, n: u32) -> Option<Self> {
@@ -184,11 +184,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::CheckedEuclid for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::CheckedEuclid for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn checked_div_euclid(&self, rhs: &Self) -> Option<Self> {
@@ -201,11 +201,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::SaturatingAdd for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::SaturatingAdd for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn saturating_add(&self, rhs: &Self) -> Self {
@@ -213,11 +213,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::SaturatingSub for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::SaturatingSub for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn saturating_sub(&self, rhs: &Self) -> Self {
@@ -225,11 +225,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::Saturating  for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Saturating  for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn saturating_add(self, rhs: Self) -> Self {
@@ -242,11 +242,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::SaturatingMul for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::SaturatingMul for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn saturating_mul(&self, rhs: &Self) -> Self {
@@ -254,11 +254,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::WrappingAdd for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::WrappingAdd for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn wrapping_add(&self, rhs: &Self) -> Self {
@@ -266,11 +266,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::WrappingSub for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::WrappingSub for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn wrapping_sub(&self, rhs: &Self) -> Self {
@@ -278,11 +278,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::WrappingMul for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::WrappingMul for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn wrapping_mul(&self, rhs: &Self) -> Self {
@@ -291,11 +291,11 @@ macro_rules! aint_impl_num_traits {
             }
 
 
-            impl<Bits> num_traits::WrappingShl for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::WrappingShl for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn wrapping_shl(&self, n: u32) -> Self {
@@ -303,11 +303,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::WrappingShr for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::WrappingShr for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn wrapping_shr(&self, n: u32) -> Self {
@@ -315,11 +315,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::Num for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Num for AInt<$type, BITS>
             where
-                Bits: BitsSpec ,
-                Self: Number<Container=$type, Bits=Bits> + PartialEq<Self>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type> + PartialEq<Self>,
+
             {
                 type FromStrRadixErr = ParseAIntError;
 
@@ -329,11 +329,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::ToPrimitive for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::ToPrimitive for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn to_u64(&self) -> Option<u64> {
@@ -346,11 +346,11 @@ macro_rules! aint_impl_num_traits {
                 }
             }
 
-            impl<Bits> num_traits::NumCast for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::NumCast for AInt<$type, BITS>
             where
-                Bits: BitsSpec,
-                Self: Number<Container=$type, Bits=Bits>,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+
+                Self: Number<Container=$type>,
+
             {
                 #[inline]
                 fn from<F: num_traits::ToPrimitive>(n: F) -> Option<Self> {
@@ -371,11 +371,11 @@ macro_rules! aint_impl_num_traits_unsigned {
     ($( $type:ty),+) => {
         $(
 
-            impl<Bits> num_traits::Unsigned for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Unsigned for AInt<$type, BITS>
             where
-                Self: Number<Container=$type, Bits=Bits> + PartialEq<Self> + Unsigned,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+                Self: Number<Container=$type> + PartialEq<Self> + Unsigned,
+
+
             {
             }
         )+
@@ -389,11 +389,11 @@ macro_rules! aint_impl_num_traits_signed {
     ($( $type:ty),+) => {
         $(
 
-            impl<Bits> num_traits::Signed for AInt<$type, Bits>
+            impl<const BITS: usize> num_traits::Signed for AInt<$type, BITS>
             where
-                Self: Number<Container=$type, Bits=Bits> + PartialEq<Self> + Neg<Output=Self> + Signed + num_traits::Num,
-                Bits: BitsSpec,
-                <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+                Self: Number<Container=$type> + PartialEq<Self> + Neg<Output=Self> + Signed + num_traits::Num,
+
+
             {
 
                 fn abs(&self) -> Self {
@@ -425,18 +425,18 @@ macro_rules! aint_impl_num_traits_signed {
 aint_impl_num_traits_signed!(i8, i16, i32, i64, i128);
 
 
-// impl<Bits> num_traits::Signed for AInt<$type, Bits>
+// impl<const BITS: usize> num_traits::Signed for AInt<$type, BITS>
 // where
-//     Self: Number<Container=$type, Bits=Bits> + PartialEq<Self> + PartialOrd<Self> + Neg + Signed,
-//     Bits: BitsSpec,
-//     <$type as AIntContainer>::Bits: typenum::IsGreaterOrEqual<Bits, Output = typenum::True>
+//     Self: Number<Container=$type> + PartialEq<Self> + PartialOrd<Self> + Neg + Signed,
+//
+//
 // {
 // }
 
-// impl<Bits> num_traits::PrimInt for AInt<$type, Bits>
+// impl<const BITS: usize> num_traits::PrimInt for AInt<$type, BITS>
 // where
-//     Bits: BitsSpec,
-//     Self: Number<Container = $type, Bits=Bits>
+//
+//     Self: Number<Container = $type>
 //         + Shl<u32, Output = Self>
 //         + Shr<u32, Output = Self>
 //         + num_traits::Pow<u32, Output = Self>,
@@ -704,4 +704,33 @@ mod tests {
         assert!(increment_by_512(u7::new(3)).is_err());
         assert_eq!(increment_by_512(u15::new(3)), Ok(u15::new(515)));
     }
+
+    #[test]
+    fn add_wrapping() {
+        let v1 = u7::new(120);
+        let v2 = u7::new(10);
+        let v3 = num_traits::WrappingAdd::wrapping_add(&v1, &v2);
+        assert_eq!(v3, u7::new(2));
+    }
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn sub_wrapping() {
+        let v1 = u7::new(15);
+        let v2 = u7::new(20);
+        let v3 = num_traits::WrappingSub::wrapping_sub(&v1, &v2);
+        assert_eq!(v3, u7::new(123));
+    }
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn bounded() {
+        assert_eq!(u7::MAX, u7::max_value());
+
+        assert_eq!(u119::MAX, u119::max_value());
+        assert_eq!(u7::new(0), u7::min_value());
+
+        assert_eq!(u119::new(0), u119::min_value());
+    }
+
 }
