@@ -47,6 +47,7 @@ forward_ref_generic = "0.2.1"
 seq-macro = "0.3.5"
 paste = "1.0.15"
 const_panic = "0.2.10"
+constcat = "0.5.1"
 
 [dev-dependencies]
 serde_test = "1.0"

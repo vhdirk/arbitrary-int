@@ -7,10 +7,10 @@ use core::str::FromStr;
 use core::num::ParseIntError;
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign,
-    Mul, MulAssign, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign, Neg,
+    Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
 };
 
-use crate::{AIntErrorKind, Number, ParseAIntError};
+use crate::{Number, ParseAIntError};
 
 use crate::{AInt, AIntContainer};
 
@@ -466,6 +466,3 @@ where
         Self::new(self.value.neg())
     }
 }
-
-
-

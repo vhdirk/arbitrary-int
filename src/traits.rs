@@ -1,9 +1,5 @@
-use crate::{bits, error::TryNewError, AIntContainer};
-use core::fmt;
 use std::error::Error;
-use core::ops::{Add, Shr};
-use crate::bits::{ConstMin, ConstMax, ConstBounded};
-
+use crate::{error::TryNewError, AIntContainer};
 
 pub trait UnsignedNumberType:
     AIntContainer + From<u8> + TryFrom<u16> + TryFrom<u32> + TryFrom<u64> + TryFrom<u128>
@@ -139,24 +135,6 @@ macro_rules! impl_native {
                     self as $unsigned
                 }
             }
-
-
-
-            impl<const MIN_BITS: usize> ConstMin<{<$type>::BITS as usize}, MIN_BITS> for $type
-            where
-                ConstBounded<{<$type>::BITS as usize}, MIN_BITS, 128>: Sized,
-            {
-
-            }
-
-
-            impl<const MAX_BITS: usize> ConstMax<{<$type>::BITS as usize}, MAX_BITS> for $type
-            where
-                ConstBounded<{<$type>::BITS as usize}, 1, MAX_BITS>: Sized,
-            {
-
-            }
-
         )+
     };
 }

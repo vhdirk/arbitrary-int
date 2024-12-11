@@ -1,10 +1,7 @@
-
-use core::ops::{Add, Shr};
-use crate::util::{Assert, CompileTimeAssert};
-use crate::{AInt, AIntContainer, Number, TryNewError, AIntErrorKind};
+use crate::assert_bounds;
+use crate::util::ConstBounded;
+use crate::{AInt, AIntContainer, AIntErrorKind, Number, TryNewError};
 use core::fmt::Debug;
-use crate::bits::ConstBounded;
-
 // Conversions
 
 macro_rules! aint_impl_from_bool {
@@ -33,10 +30,7 @@ macro_rules! aint_impl_from_bool {
     };
 }
 
-
 aint_impl_from_bool!(u8, u16, u32, u64, u128);
-
-
 
 // Implement From for any type thas has the same amount or more bits available
 macro_rules! aint_impl_from_aint {
@@ -48,10 +42,11 @@ macro_rules! aint_impl_from_aint {
                 $into: AIntContainer + Debug,
                 AInt<$from, FROM_BITS>: Number<Container=$from>,
                 AInt<$into, FROM_BITS>: Number<Container=$into>,
-                ConstBounded<BITS, FROM_BITS, 128>: Sized
+                ConstBounded<BITS, FROM_BITS, {<$into>::BITS as usize}>: Sized
             {
                 #[inline]
                 fn from(item: AInt<$from, FROM_BITS>) -> Self {
+                    assert_bounds!(BITS, FROM_BITS, 128);
                     unsafe {
                         Self::new_unchecked(item.value as $into)
                     }
@@ -75,7 +70,6 @@ aint_impl_from_aint!(i32, [i8, i16, i64, i128]);
 aint_impl_from_aint!(i64, [i8, i16, i32, i128]);
 aint_impl_from_aint!(i128, [i8, i16, i32, i64]);
 
-
 // Implement From for unsigned into signed if the signed type has at least 1 bit more room
 macro_rules! aint_impl_from_unsigned {
     ($from:ty, [$($into:ty),+]) => {
@@ -86,11 +80,12 @@ macro_rules! aint_impl_from_unsigned {
                 $into: AIntContainer + Debug,
                 AInt<$from, FROM_BITS>: Number<Container=$from>,
                 AInt<$into, FROM_BITS>: Number<Container=$into>,
-                ConstBounded<BITS, FROM_BITS, 128>: Sized,
+                ConstBounded<BITS, FROM_BITS, {<$into>::BITS as usize}>: Sized,
                 ConstBounded<FROM_BITS, 1, BITS>: Sized
             {
                 #[inline]
                 fn from(item: AInt<$from, FROM_BITS>) -> Self {
+                    assert_bounds!(BITS, FROM_BITS, 128);
                     unsafe {
                         Self::new_unchecked(item.value as $into)
                     }
@@ -101,11 +96,13 @@ macro_rules! aint_impl_from_unsigned {
             where
                 $into: AIntContainer + Debug,
                 AInt<$into, BITS>: Number<Container=$into>,
-                ConstBounded<BITS, { <$from>::BITS as usize}, 128>: Sized,
-                ConstBounded< { <$from>::BITS as usize}, 1, BITS>: Sized
+                // ConstBounded<BITS, { <$from>::BITS as usize }, {<$into>::BITS as usize}>: Sized,
+                // ConstBounded< { <$from>::BITS as usize }, 1, BITS>: Sized
+                ConstBounded<BITS, { <$from>::BITS as usize }, {<$into>::BITS as usize}>: Sized,
             {
                 #[inline]
                 fn from(item: $from) -> Self {
+                    assert_bounds!(BITS, <$from>::BITS as usize, 128);
                     unsafe {
                         Self::new_unchecked(item as $into)
                     }
@@ -121,7 +118,6 @@ aint_impl_from_unsigned!(u32, [i8, i16, i64, i128]);
 aint_impl_from_unsigned!(u64, [i8, i16, i32, i128]);
 aint_impl_from_unsigned!(u128, [i8, i16, i32, i64]);
 
-
 // Implement From for any type thas has the same amount or more bits available
 macro_rules! aint_impl_from_native {
     ($from:ty, [$($into:ty),+]) => {
@@ -130,11 +126,11 @@ macro_rules! aint_impl_from_native {
             where
                 $into: AIntContainer + Debug,
                 AInt<$into, BITS>: Number<Container=$into>,
-                ConstBounded<BITS, { <$from>::BITS as usize}, 128>: Sized,
-                ConstBounded< { <$from>::BITS as usize}, 1, BITS>: Sized
+                ConstBounded<BITS, { <$from>::BITS as usize}, { <$into>::BITS as usize }>: Sized,
             {
                 #[inline]
                 fn from(item: $from) -> Self {
+                    assert_bounds!(BITS, <$from>::BITS as usize, 128);
                     Self::new_wrapping(item as $into)
                 }
             }
@@ -148,13 +144,13 @@ macro_rules! aint_impl_from_native {
             {
                 #[inline]
                 fn from(item: AInt<$from, BITS>) -> Self {
+                    assert_bounds!(<$into>::BITS as usize , BITS, 128);
                     item.value() as $into
                 }
             }
         )+
     };
 }
-
 
 aint_impl_from_native!(u8, [u8, u16, u32, u64, u128]);
 aint_impl_from_native!(u16, [u8, u16, u32, u64, u128]);
@@ -167,8 +163,6 @@ aint_impl_from_native!(i16, [i8, i16, i32, i64, i128]);
 aint_impl_from_native!(i32, [i8, i16, i32, i64, i128]);
 aint_impl_from_native!(i64, [i8, i16, i32, i64, i128]);
 aint_impl_from_native!(i128, [i8, i16, i32, i64, i128]);
-
-
 
 // Implement From for unsigned into signed if the signed type has at least 1 bit more room
 macro_rules! aint_impl_try_from_signed {
@@ -215,7 +209,6 @@ aint_impl_try_from_signed!(i16, [u8, u32, u64, u128]);
 aint_impl_try_from_signed!(i32, [u8, u16, u64, u128]);
 aint_impl_try_from_signed!(i64, [u8, u16, u32, u128]);
 aint_impl_try_from_signed!(i128, [u8, u16, u32, u64]);
-
 
 #[cfg(test)]
 mod tests {
@@ -325,6 +318,31 @@ mod tests {
     #[allow(non_camel_case_types)]
     #[test]
     fn from_native_ints_same_bits() {
+        use std::primitive;
+
+        type u8 = AInt<primitive::u8, 8>;
+        type u16 = AInt<primitive::u16, 16>;
+        type u32 = AInt<primitive::u32, 32>;
+        type u64 = AInt<primitive::u64, 64>;
+        type u128 = AInt<primitive::u128, 128>;
+
+        assert_eq!(u8::from(0x80_u8), u8::new(0x80));
+        assert_eq!(u16::from(0x8000_u16), u16::new(0x8000));
+        assert_eq!(u32::from(0x8000_0000_u32), u32::new(0x8000_0000));
+        assert_eq!(
+            u64::from(0x8000_0000_0000_0000_u64),
+            u64::new(0x8000_0000_0000_0000)
+        );
+
+        assert_eq!(
+            u128::from(0x8000_0000_0000_0000_0000_0000_0000_0000_u128),
+            u128::new(0x8000_0000_0000_0000_0000_0000_0000_0000)
+        );
+    }
+
+    #[allow(non_camel_case_types)]
+    #[test]
+    fn from_bounded() {
         use std::primitive;
 
         type u8 = AInt<primitive::u8, 8>;

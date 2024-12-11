@@ -1,11 +1,10 @@
+use crate::assert_bounds;
 use crate::traits::{Signed, Unsigned};
-use crate::util::CompileTimeAssert;
+use crate::util::ConstBounded;
 use crate::{AIntContainer, AIntErrorKind, Number, ParseAIntError, TryNewError};
 use core::fmt;
 use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::ops::{Add, BitAnd, Shr};
-use crate::bits::{self,  ConstBounded, ConstMin, ConstMax};
+use std::ops::{BitAnd, Shr};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 #[repr(transparent)]
@@ -45,31 +44,13 @@ where
     }
 }
 
-
-impl<T, const BITS: usize, const MIN_BITS: usize> ConstMin<BITS, MIN_BITS> for AInt<T, BITS>
-where
-    T: AIntContainer + Debug,
-    ConstBounded<BITS, MIN_BITS, 128>: Sized,
-{
-
-}
-
-impl<T, const BITS: usize, const MAX_BITS: usize> ConstMax<BITS, MAX_BITS> for AInt<T, BITS>
-where
-    T: AIntContainer + Debug,
-    ConstBounded<BITS, 1, MAX_BITS>: Sized,
-{
-
-}
-
-
 macro_rules! aint_impl_unsigned {
     ($($type:ident),+) => {
         $(
             impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                ConstBounded<BITS, 1, {$type::BITS as usize}>: Sized
+                ConstBounded<BITS, 1, {<$type>::BITS as usize}>: Sized
             {
                 // we define all consts here and reference them in impl Number; that way, we can use them in const fns
                 pub const ZERO: Self = Self { value: 0 };
@@ -78,21 +59,22 @@ macro_rules! aint_impl_unsigned {
                 #[allow(unused_comparisons)]
                 pub const SIGNED: bool = <$type>::MIN < 0;
 
-                pub const MIN: Self = Self { value: (<$type>::MIN >> (<$type>::BITS - BITS as u32)) };
+                pub const MIN: Self = assert_bounds!((BITS, 1, <$type>::BITS as usize) => { Self { value: (<$type>::MIN >> (<$type>::BITS - BITS as u32)) } });
 
                 // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
                 // we will get a compiler error right here
-                pub const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS - BITS as u32)) };
+                pub const MAX: Self = assert_bounds!((BITS, 1, <$type>::BITS as usize) => { Self { value: (<$type>::MAX >> (<$type>::BITS - BITS as u32)) } });
 
                 // can't shift by BITS in one go. x86 doesn't support that
-                pub const MASK: $type = !(((!(0 as $type)) << (BITS -1) ) << 1);
+                pub const MASK: $type = assert_bounds!((BITS, 1, <$type>::BITS as usize) => { !(((!(0 as $type)) << (BITS -1) ) << 1) });
+
             }
 
             impl<const BITS: usize> Unsigned for AInt<$type, BITS>
             where
                 Self: Number<Container=$type>,
                 $type: AIntContainer + Debug,
-                ConstBounded<BITS, 1, 128>: Sized
+                ConstBounded<BITS, 1, {<$type>::BITS as usize}>: Sized
             { }
         )+
     }
@@ -107,14 +89,14 @@ macro_rules! aint_impl_signed {
             impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                ConstBounded<BITS, 1, 128>: Sized
+                ConstBounded<BITS, 1, {<$type>::BITS as usize}>: Sized
             {  }
 
             impl<const BITS: usize> Signed for AInt<$type, BITS>
             where
                 Self: Number<Container=$type>,
                 $type: AIntContainer + Debug,
-                ConstBounded<BITS, 1, 128>: Sized
+                ConstBounded<BITS, 1, {<$type>::BITS as usize}>: Sized
             { }
 
         )+
@@ -130,8 +112,7 @@ macro_rules! aint_impl_number {
             impl<const BITS: usize> AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                ConstBounded<BITS, 1, 128>: Sized
-
+                ConstBounded<BITS, 1, {<$type>::BITS as usize}>: Sized
             {
 
                 #[allow(unused)]
@@ -155,10 +136,10 @@ macro_rules! aint_impl_number {
             }
 
 
-            impl<const BITS: usize> Number for AInt<$type, BITS>
+            impl<const BITS: usize > Number for AInt<$type, BITS>
             where
                 $type: AIntContainer + Debug,
-                ConstBounded<BITS, 1, 128>: Sized
+                ConstBounded<BITS, 1, {<$type>::BITS as usize}>: Sized
             {
                 type Container = $type;
                 type TryNewError = TryNewError;
@@ -177,14 +158,14 @@ macro_rules! aint_impl_number {
                 #[allow(unused_comparisons)]
                 const SIGNED: bool = <$type>::MIN < 0;
 
-                const MIN: Self = Self { value: (<$type>::MIN >> (<$type>::BITS - BITS as u32)) };
+                const MIN: Self = assert_bounds!((BITS, 1, <$type>::BITS as usize ) => { Self { value: (<$type>::MIN >> (<$type>::BITS - BITS as u32)) } });
 
                 // The existence of MAX also serves as a bounds check: If NUM_BITS is > available bits,
                 // we will get a compiler error right here
-                const MAX: Self = Self { value: (<$type>::MAX >> (<$type>::BITS - BITS as u32)) };
+                const MAX: Self = assert_bounds!((BITS, 1, <$type>::BITS as usize ) => { Self { value: (<$type>::MAX >> (<$type>::BITS - BITS as u32)) } });
 
                 // can't shift by BITS in one go. x86 doesn't support that
-                const MASK: $type = !(((!(0 as $type)) << (BITS -1) ) << 1);
+                const MASK: $type = assert_bounds!((BITS, 1, <$type>::BITS as usize ) => { !(((!(0 as $type)) << (BITS -1) ) << 1) });
 
                 #[inline]
                 fn try_new(value: Self::Container) -> Result<Self, Self::TryNewError> {
@@ -266,7 +247,6 @@ macro_rules! aint_impl {
                 $type: AIntContainer + Debug,
                 ConstBounded<BITS, 1, { <$type>::BITS as usize }>: Sized
             {
-
                 // #[inline]
                 // const fn new_impl(value: $type) -> Self  {
                 //     Self { value }
@@ -309,6 +289,7 @@ macro_rules! aint_impl {
                     }
                 }
 
+                #[inline]
                 pub const fn new_wrapping(value: $type) -> Self {
                     if Self::SIGNED {
                         if (value & Self::MASK) == 0 {
@@ -327,6 +308,7 @@ macro_rules! aint_impl {
                 /// representation value is greater than [`MAX`](Self::MAX), the returned value will be
                 /// [`MAX`](Self::MAX). If the representation value is less than [`MIN`](Self::MIN), the
                 /// returned value will be [`MIN`](Self::MIN).
+                #[inline]
                 pub const fn new_saturating(value: $type) -> Self{
                     if value >= Self::MAX.value {
                         Self::MAX
@@ -337,6 +319,8 @@ macro_rules! aint_impl {
                     }
                 }
 
+                #[track_caller]
+                #[inline]
                 pub(crate) const fn new_overflowing_impl((value, overflow): ($type, bool)) -> (Self, bool) {
                     if value > Self::MAX.value {
                         (Self {value: value & Self::MAX.value}, true)
@@ -347,6 +331,7 @@ macro_rules! aint_impl {
                     }
                 }
 
+                #[inline]
                 pub(crate) const fn new_overflowing(value: $type) -> (Self, bool) {
                     Self::new_overflowing_impl((value, false))
                 }

@@ -5,12 +5,11 @@
     "std",
     // "num-traits",
     // "borsh",
-    "serde",
+    // "serde",
     // "defmt",
     // "schemars",
-    // "generic_const_exprs",
+    // // "generic_const_exprs",
     // "funty",
-    // "nightly",
 
   ],
 

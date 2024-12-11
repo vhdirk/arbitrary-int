@@ -487,7 +487,6 @@ fn min_max_fullwidth() {
     assert_eq!(u128::MAX, AInt::<u128, 128>::MAX.value());
 }
 
-#[allow(deprecated)]
 #[test]
 fn extract() {
     assert_eq!(u5::new(0b10000), u5::extract_from(0b11110000_u8, 0));
@@ -579,14 +578,14 @@ fn extract_not_enough_bits_128() {
 fn widen() {
     // As From() can't be used while keeping the base-data-type, there's widen
 
-    assert_eq!(u5::new(0b11011).widen::<6>(), u6::new(0b11011));
+    assert_eq!(u5::new(0b11011).widen(), u6::new(0b11011));
     assert_eq!(
-        u5::new(0b11011).widen::<8>(),
+        u5::new(0b11011).widen(),
         AInt::<u8, 8>::new(0b11011)
     );
-    assert_eq!(u10::new(0b11011).widen::<11>(), u11::new(0b11011));
-    assert_eq!(u20::new(0b11011).widen::<24>(), u24::new(0b11011));
-    assert_eq!(u60::new(0b11011).widen::<61>(), u61::new(0b11011));
+    assert_eq!(u10::new(0b11011).widen(), u11::new(0b11011));
+    assert_eq!(u20::new(0b11011).widen(), u24::new(0b11011));
+    assert_eq!(u60::new(0b11011).widen(), u61::new(0b11011));
 
     assert_eq!(u80::new(0b11011).widen::<127>().value(), 0b11011);
 }
