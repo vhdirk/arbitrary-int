@@ -57,13 +57,13 @@ where
         definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,
     ) {
         definitions.insert(
-            [if Self::SIGNED { "i" } else { "u" }, stringify!(BITS as u8)].concat(),
+            Self::declaration(),
             borsh::schema::Definition::Primitive(Self::BYTES as u8),
         );
     }
 
     fn declaration() -> borsh::schema::Declaration {
-        [if Self::SIGNED { "i" } else { "u" }, stringify!(BITS as u8)].concat()
+        format!("{}{}", if Self::SIGNED { "i" } else { "u" }, Self::BITS)
     }
 }
 
