@@ -1,4 +1,4 @@
-name: test num-traits
+name: test const
 run-name: ${{ github.actor }}'s patch
 on: [push]
 jobs:
@@ -11,8 +11,9 @@ jobs:
           node-version: '14'
       - uses: actions-rs/toolchain@v1.0.6
         with:
-          toolchain: stable
+          toolchain: nightly-2024-04-01
+          override: true
       - uses: actions-rs/cargo@v1.0.1
         with:
           command: test
-          args: --no-default-features --features num-traits
+          args: --no-default-features --features funty
